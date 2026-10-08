@@ -9,7 +9,6 @@ TEST(Iso8601, ParsesAndRoundTrips) {
     const auto later = lf::parseIso8601Utc("2026-10-08T12:34:57Z");
     ASSERT_TRUE(later.has_value());
     EXPECT_EQ(std::chrono::duration_cast<std::chrono::seconds>(*later - *t).count(), 1);
-    EXPECT_TRUE(lf::parseIso8601Utc("2026-10-08T12:34:56").has_value()) << "trailing Z is optional";
 
     auto now = lf::parseIso8601Utc(lf::nowIso8601Utc());
     ASSERT_TRUE(now.has_value());
@@ -20,6 +19,40 @@ TEST(Iso8601, RejectsGarbage) {
     for (const char* s : {"", "yesterday", "2026-13-01T00:00:00Z", "2026-01-01", "2026-01-01T25:00:00Z", "1969-01-01T00:00:00Z",
                           "2026-01-01T00:00:00Zjunk"})
         EXPECT_FALSE(lf::parseIso8601Utc(s).has_value()) << s;
+}
+
+// 厳密な形式 "YYYY-MM-DDTHH:MM:SSZ" だけを受理する (状態ファイルの改変・破損を見逃さないため)。
+TEST(Iso8601, RejectsTrailingCharactersAfterTheZ) {
+    ASSERT_TRUE(lf::parseIso8601Utc("2026-01-01T00:00:00Z").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00Zjunk").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00ZZ").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00Z0").has_value());
+}
+
+TEST(Iso8601, RequiresTheTrailingZ) {
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00z").has_value()) << "lower-case z is not accepted";
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00+09:00").has_value()) << "offsets are not accepted";
+}
+
+TEST(Iso8601, RejectsEmptyString) {
+    EXPECT_FALSE(lf::parseIso8601Utc("").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("Z").has_value());
+}
+
+TEST(Iso8601, RejectsSurroundingWhitespace) {
+    EXPECT_FALSE(lf::parseIso8601Utc(" 2026-01-01T00:00:00Z").has_value()) << "leading space";
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00Z ").has_value()) << "trailing space";
+    EXPECT_FALSE(lf::parseIso8601Utc("\t2026-01-01T00:00:00Z").has_value()) << "leading tab";
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:00Z\n").has_value()) << "trailing newline";
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01 T00:00:00Z").has_value()) << "inner space";
+    EXPECT_FALSE(lf::parseIso8601Utc("2026- 1-01T00:00:00Z").has_value()) << "space inside a number";
+}
+
+TEST(Iso8601, RejectsSignsAndMalformedNumbers) {
+    EXPECT_FALSE(lf::parseIso8601Utc("+2026-01-01T00:00:00Z").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-+1-01T00:00:00Z").has_value());
+    EXPECT_FALSE(lf::parseIso8601Utc("2026-01-01T00:00:-5Z").has_value());
 }
 
 TEST(MemoryRegistry, BehavesLikeTheRealOne) {

@@ -20,11 +20,16 @@ std::string nowIso8601Utc() {
 }
 
 std::optional<std::chrono::system_clock::time_point> parseIso8601Utc(std::string_view s) {
+    // 厳密な形式のみ: "YYYY-MM-DDTHH:MM:SSZ" (末尾の Z 必須)。前後の空白・余計な文字・符号は拒否する。
+    // (sscanf は先頭の空白を読み飛ばし、末尾の余りも黙って無視するため、文字種の検査と %n による消費長の確認が必要。)
+    if (s.empty()) return std::nullopt;
+    for (char c : s)
+        if (!((c >= '0' && c <= '9') || c == '-' || c == ':' || c == 'T' || c == 'Z')) return std::nullopt;
     const std::string str(s);
     int y = 0, mo = 0, d = 0, h = 0, mi = 0, sec = 0;
-    char tail = 0;
-    const int n = sscanf_s(str.c_str(), "%d-%d-%dT%d:%d:%d%c", &y, &mo, &d, &h, &mi, &sec, &tail, 1u);
-    if (n != 6 && !(n == 7 && tail == 'Z')) return std::nullopt;
+    int consumed = -1;  // 'Z' まで一致したときだけ %n が代入される
+    const int n = sscanf_s(str.c_str(), "%d-%d-%dT%d:%d:%dZ%n", &y, &mo, &d, &h, &mi, &sec, &consumed);
+    if (n != 6 || consumed != static_cast<int>(str.size())) return std::nullopt;
     if (y < 1970 || mo < 1 || mo > 12 || d < 1 || d > 31 || h < 0 || h > 23 || mi < 0 || mi > 59 || sec < 0 || sec > 61)
         return std::nullopt;
     std::tm tm{};

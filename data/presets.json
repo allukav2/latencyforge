@@ -5,7 +5,7 @@
       "id": "safe",
       "title": { "ja": "安全", "en": "Safe" },
       "description": {
-        "ja": "最も保守的な組み合わせです(2 項目)。効果はWindowsのビルドや環境に依存し、変化がない場合もあります。初回はこちらをお勧めします。",
+        "ja": "最も保守的な組み合わせです(2項目)。効果はビルド依存で、お使いの環境では変化がない場合もあります。初回はこちらをおすすめします。",
         "en": "The most conservative combination (2 items). The effect is build-dependent and may be nil on your system. Recommended for the first run."
       },
       "tweaks": [

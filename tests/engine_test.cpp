@@ -59,7 +59,7 @@ struct Env {
         lf::EngineConfig cfg{stateFile(), historyFile(), build};
         return std::make_unique<lf::Engine>(reg, policy, log, cfg, [this] {
             char buf[40];
-            std::snprintf(buf, sizeof buf, "2026-01-01T%02d:00:%02d", hour, ++tick % 60);
+            std::snprintf(buf, sizeof buf, "2026-01-01T%02d:00:%02dZ", hour, ++tick % 60);  // 厳密な ISO-8601 (Z 必須)
             return std::string(buf);
         });
     }
