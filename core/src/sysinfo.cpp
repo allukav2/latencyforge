@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstdio>
 #include <set>
 
 namespace lf {
@@ -153,6 +154,7 @@ std::vector<GpuInfo> analyzeGpus(const std::vector<RawGpu>& raw) {
         g.vendorId = r.vendorId;
         g.deviceId = r.deviceId;
         g.vramBytes = r.dedicatedVideoMemory;
+        g.driverVersion = r.driverVersion;
         switch (r.vendorId) {  // PCI ベンダー ID
             case 0x10DE: g.vendor = GpuVendor::Nvidia; break;
             case 0x1002:
@@ -167,6 +169,24 @@ std::vector<GpuInfo> analyzeGpus(const std::vector<RawGpu>& raw) {
         out.push_back(std::move(g));
     }
     return out;
+}
+
+std::string formatDriverVersion(uint64_t v) {
+    if (v == 0) return {};
+    const unsigned a = static_cast<unsigned>((v >> 48) & 0xFFFF), b = static_cast<unsigned>((v >> 32) & 0xFFFF);
+    const unsigned c = static_cast<unsigned>((v >> 16) & 0xFFFF), d = static_cast<unsigned>(v & 0xFFFF);
+    return std::to_string(a) + "." + std::to_string(b) + "." + std::to_string(c) + "." + std::to_string(d);
+}
+
+std::string nvidiaDriverVersion(uint64_t v) {
+    if (v == 0) return {};
+    const unsigned c = static_cast<unsigned>((v >> 16) & 0xFFFF), d = static_cast<unsigned>(v & 0xFFFF);
+    char digits[16];
+    std::snprintf(digits, sizeof digits, "%u%04u", c, d);  // 例: 15 と 6094 → "156094"
+    const std::string s = digits;
+    if (s.size() < 5) return {};
+    const std::string last5 = s.substr(s.size() - 5);  // "56094" → "560.94"
+    return last5.substr(0, 3) + "." + last5.substr(3);
 }
 
 bool SystemInfo::hasNvidia() const {

@@ -251,7 +251,7 @@
     "rebootTitle": "A restart is required",
     "rebootBody": "Restart Windows (not just shut down) for the changes to take effect. With Fast Startup, only a restart reloads these values.",
     "defIssuesTitle": "{0} tweak definition(s) could not be loaded",
-    "demoBanner": "Demo mode: you are working on an in-memory registry. Your real registry is not touched."
+    "demoBanner": "Demo mode: you are working on an in-memory registry and a simulated power plan. Your real registry and power plans are not touched."
   },
   "preview": {
     "applyTitle": "Review the changes",
@@ -308,19 +308,25 @@
     "presetReview": "Review the Safe preset…",
     "presetLater": "Not now"
   },
+  "usb": {
+    "subtitle": "Changes USB selective suspend (power saving for unused USB devices) using the official Windows power settings only.",
+    "planTitle": "Current power plan",
+    "planNote": "Changes apply only to the currently active power plan (switching plans does not change the other plans). The previous value is backed up per power plan and can be restored at any time. USB polling rates and drivers are never touched. The effect is system-dependent.",
+    "noScheme": "The current power plan could not be read.",
+    "otherPlans": "{0} item(s) were applied on a different power plan. \"Revert everything\" restores them too.",
+    "settingMissing": "This setting does not exist in this power plan, so it cannot be changed."
+  },
+  "gpu": {
+    "subtitle": "NVIDIA GPU detection and officially documented settings.",
+    "unverifiedTitle": "Not verified on real NVIDIA hardware",
+    "unverifiedBody": "This feature has not been tested on real NVIDIA hardware. For now it only shows the detected GPU and driver; it does not change any GPU or driver setting.",
+    "detected": "Detected NVIDIA GPU(s)",
+    "driver": "Driver",
+    "noTweaksTitle": "There are no settings to change yet",
+    "noTweaksBody": "NVIDIA settings are added only when they can be confirmed in official documentation. Settings that cannot be said to be reliably documented, driver file changes and unofficial registry changes are not made. Candidates are listed in docs/gpu-candidates.md and will be implemented only after approval.",
+    "effectNote": "Even when settings are added, the effect is system-dependent and may not be measurable."
+  },
   "placeholder": {
-    "affinity": {
-      "subtitle": "Automatically place the game and background processes on suitable CPU cores.",
-      "desc": "Planned (milestone 5): CPU topology detection, game profiles, automatic apply/restore. Note: some anti-cheat software may warn about or block affinity changes. The benefit is small on simple CPU layouts."
-    },
-    "usb": {
-      "subtitle": "USB selective suspend and related power settings.",
-      "desc": "Planned (milestone 6): uses the documented Windows power-setting API only, with the previous values backed up."
-    },
-    "gpu": {
-      "subtitle": "Documented NVIDIA settings.",
-      "desc": "Planned (milestone 6): this page is disabled when no NVIDIA GPU is detected."
-    },
     "bench": {
       "subtitle": "Compare timer resolution and sleep accuracy before and after.",
       "desc": "Planned (milestone 7): results are system-dependent and are saved as JSON."

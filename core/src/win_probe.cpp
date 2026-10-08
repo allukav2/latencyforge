@@ -160,6 +160,8 @@ std::vector<RawGpu> WinSystemProbe::gpus() {
             g.deviceId = d.DeviceId;
             g.dedicatedVideoMemory = d.DedicatedVideoMemory;
             g.software = (d.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
+            LARGE_INTEGER umd{};  // ユーザーモードドライバーのバージョン (取得できなければ 0)
+            if (SUCCEEDED(adapter->CheckInterfaceSupport(__uuidof(IDXGIDevice), &umd))) g.driverVersion = static_cast<uint64_t>(umd.QuadPart);
             out.push_back(std::move(g));
         }
         adapter->Release();

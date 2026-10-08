@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "tweaks": [
+    {
+      "id": "usb.selective_suspend_ac",
+      "category": "usb",
+      "path": "POWER\\ACTIVE\\2a737441-1930-4402-8d77-b2bebba308a3",
+      "value": "48e6b7a6-50f5-4782-a5d4-53bb8f07e226:ac",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "USB セレクティブ サスペンドを無効化(AC 電源時)", "en": "Disable USB selective suspend (plugged in)" },
+      "summary": {
+        "ja": "電源プランの「USB のセレクティブ サスペンドの設定」を、AC 電源使用時に「無効」にします。",
+        "en": "Sets the power plan's \"USB selective suspend setting\" to Disabled while plugged in."
+      },
+      "details": {
+        "ja": "Windows の公式な電源設定 (powercfg の SUB_USB / USBSELECTIVESUSPEND、powrprof の電源プラン API) を使います。現在アクティブな電源プランの、AC 電源使用時の値を 0 (無効) にします。USB デバイスが省電力状態へ移行しなくなるため、入力デバイスの復帰遅延や切断が起きにくくなる場合がありますが、効果は機器とシステムに依存し、変化が測れないこともあります。適用前の値は自動でバックアップされ、元に戻せます。",
+        "en": "Uses the official Windows power settings (powercfg SUB_USB / USBSELECTIVESUSPEND, the powrprof power-scheme API). Sets the AC value of the currently active power plan to 0 (Disabled). USB devices no longer enter a low-power state, which can avoid wake-up delays or dropouts on some input devices, but the effect depends on the device and system and may not be measurable. The previous value is backed up automatically and can be restored."
+      },
+      "note": {
+        "ja": "効果はシステム依存です。適用先は現在の電源プランで、電源プランを切り替えると、別のプランには適用されていません。",
+        "en": "The effect is system-dependent. It applies to the currently active power plan; other plans are not changed."
+      },
+      "risk": "low",
+      "requiresReboot": false
+    },
+    {
+      "id": "usb.selective_suspend_dc",
+      "category": "usb",
+      "path": "POWER\\ACTIVE\\2a737441-1930-4402-8d77-b2bebba308a3",
+      "value": "48e6b7a6-50f5-4782-a5d4-53bb8f07e226:dc",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "USB セレクティブ サスペンドを無効化(バッテリー時)", "en": "Disable USB selective suspend (on battery)" },
+      "summary": {
+        "ja": "電源プランの「USB のセレクティブ サスペンドの設定」を、バッテリー使用時に「無効」にします。",
+        "en": "Sets the power plan's \"USB selective suspend setting\" to Disabled while on battery."
+      },
+      "details": {
+        "ja": "現在アクティブな電源プランの、バッテリー使用時 (DC) の値を 0 (無効) にします。ノート PC では USB デバイスが省電力状態に入らなくなるため、バッテリーの消費が増える場合があります。デスクトップ PC には通常関係ありません。",
+        "en": "Sets the DC (battery) value of the currently active power plan to 0 (Disabled). On laptops, USB devices no longer enter a low-power state, which can increase battery drain. It normally does not matter on desktop PCs."
+      },
+      "note": {
+        "ja": "効果はシステム依存です。バッテリーの消費が増える場合があります。",
+        "en": "The effect is system-dependent. Battery drain may increase."
+      },
+      "risk": "low",
+      "requiresReboot": false
+    }
+  ]
+}

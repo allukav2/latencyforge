@@ -32,7 +32,17 @@ struct TweakDef {
     uint32_t maxBuild = 0xFFFFFFFFu;
 
     bool supportsBuild(uint32_t build) const { return build >= minBuild && build <= maxBuild; }
+    // 電源設定の tweak (POWER\ACTIVE\... のテンプレート)。実行時に resolveForScheme で具体的な電源プランに解決して使う。
+    bool isPowerTemplate() const { return target.hive == RegHive::Power; }
 };
+
+// 電源設定のテンプレートを、具体的な電源プラン (正規化済みの GUID) に解決する。
+// 返す定義の id は "<元の id>@<電源プランの GUID>" になり、電源プランごとに別の適用記録 (バックアップ) として管理される。
+// 電源設定でない定義はそのまま返す。
+TweakDef resolveForScheme(const TweakDef& base, const std::string& schemeGuid);
+
+// "usb.selective_suspend_ac@<guid>" → "usb.selective_suspend_ac"
+std::string baseTweakId(std::string_view id);
 
 struct DefinitionIssue {
     std::string source;   // ファイル名など

@@ -57,6 +57,7 @@ struct RawGpu {
     uint32_t deviceId = 0;
     uint64_t dedicatedVideoMemory = 0;
     bool software = false;  // DXGI_ADAPTER_FLAG_SOFTWARE
+    uint64_t driverVersion = 0;  // IDXGIAdapter::CheckInterfaceSupport のユーザーモードドライバー バージョン (取得できなければ 0)
 };
 
 class ISystemProbe {
@@ -129,7 +130,13 @@ struct GpuInfo {
     uint32_t vendorId = 0, deviceId = 0;
     uint64_t vramBytes = 0;
     bool software = false;  // WARP / Microsoft Basic Render Driver など
+    uint64_t driverVersion = 0;
 };
+
+// "32.0.15.6094" 形式。0 なら空文字。
+std::string formatDriverVersion(uint64_t version);
+// NVIDIA の表記 ("560.94")。末尾 5 桁 (3 桁 + 小数 2 桁) を取る。NVIDIA 以外・形式が合わない場合は空文字。
+std::string nvidiaDriverVersion(uint64_t version);
 
 struct SystemInfo {
     OsInfo os;

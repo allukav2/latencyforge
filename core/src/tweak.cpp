@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <set>
 
+#include "lf/power_api.hpp"
 #include "lf/util.hpp"
 
 namespace lf {
@@ -32,6 +33,19 @@ bool validId(const std::string& s) {
         segStart = false;
     }
     return !segStart && segments >= 2;
+}
+
+// 電源設定の定義の形式チェック: POWER\ACTIVE\<サブグループ GUID> / <設定 GUID>:ac|dc / REG_DWORD。問題があればその説明を返す。
+std::string powerTemplateProblem(const RegPath& p, RegType type) {
+    if (type != RegType::Dword) return "power settings must be REG_DWORD";
+    const size_t slash = p.subkey.find('\\');
+    if (slash == std::string::npos || p.subkey.substr(0, slash) != "ACTIVE" || normalizeGuid(p.subkey.substr(slash + 1)).empty())
+        return "a power setting path must be POWER\\ACTIVE\\<subgroup-guid>";
+    const size_t colon = p.valueName.rfind(':');
+    if (colon == std::string::npos || normalizeGuid(p.valueName.substr(0, colon)).empty()) return "a power setting value must be <setting-guid>:ac or <setting-guid>:dc";
+    const std::string mode = p.valueName.substr(colon + 1);
+    if (mode != "ac" && mode != "dc") return "a power setting value must end in :ac or :dc";
+    return {};
 }
 
 struct Ctx {
@@ -168,6 +182,10 @@ void parseOne(Ctx& c, const json& j, const Policy& policy, std::vector<TweakDef>
         }
     }
 
+    if (type && t.target.hive == RegHive::Power) {
+        if (std::string why = powerTemplateProblem(t.target, *type); !why.empty()) c.fail(id, why);
+    }
+
     readLText(c, id, j, "title", true, kMaxShort, t.title);
     readLText(c, id, j, "summary", true, kMaxShort, t.summary);
     readLText(c, id, j, "details", false, kMaxLong, t.details);
@@ -221,6 +239,20 @@ bool parseTweakDocument(std::string_view text, std::string_view source, const Po
     if (c.failed) return false;
     for (auto& t : parsed) out.push_back(std::move(t));
     return true;
+}
+
+TweakDef resolveForScheme(const TweakDef& base, const std::string& schemeGuid) {
+    if (!base.isPowerTemplate()) return base;
+    TweakDef t = base;
+    const size_t slash = t.target.subkey.find('\\');  // "ACTIVE\<サブグループ>" の "ACTIVE" を置き換える
+    t.target.subkey = schemeGuid + (slash == std::string::npos ? std::string() : t.target.subkey.substr(slash));
+    t.id = base.id + "@" + schemeGuid;
+    return t;
+}
+
+std::string baseTweakId(std::string_view id) {
+    const size_t at = id.find('@');
+    return std::string(at == std::string_view::npos ? id : id.substr(0, at));
 }
 
 bool TweakCatalog::loadString(std::string_view text, std::string_view source, std::vector<DefinitionIssue>& issues) {

@@ -132,7 +132,7 @@ void Ui::drawRecoveryModal() {
     ImGui::TextUnformatted(fmt("recovery.info", {tx.startedAt, std::to_string(tx.ops.size())}).c_str());
     ImGui::Dummy(ImVec2(0, S(4)));
     for (const auto& op : tx.ops) {
-        const lf::TweakDef* d = m_be->catalog->find(op.tweakId);
+        const lf::TweakDef* d = findTweak(op.tweakId);
         ImGui::BulletText("%s", d ? pick(d->title).c_str() : op.tweakId.c_str());
     }
 

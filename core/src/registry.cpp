@@ -48,7 +48,14 @@ std::optional<RegType> parseTypeName(std::string_view s) {
     return std::nullopt;
 }
 
-const char* hiveName(RegHive h) { return h == RegHive::HKLM ? "HKLM" : "HKCU"; }
+const char* hiveName(RegHive h) {
+    switch (h) {
+        case RegHive::HKLM: return "HKLM";
+        case RegHive::HKCU: return "HKCU";
+        case RegHive::Power: return "POWER";
+    }
+    return "HKLM";
+}
 
 std::string RegValue::display() const {
     char buf[64];
@@ -91,8 +98,11 @@ Result<RegPath> parseRegPath(std::string_view key, std::string_view valueName) {
     } else if (key.rfind("HKCU\\", 0) == 0) {
         p.hive = RegHive::HKCU;
         rest = key.substr(5);
+    } else if (key.rfind("POWER\\", 0) == 0) {
+        p.hive = RegHive::Power;
+        rest = key.substr(6);
     } else {
-        return bad("key must start with HKLM\\ or HKCU\\");
+        return bad("key must start with HKLM\\, HKCU\\ or POWER\\");
     }
     if (rest.empty() || rest.size() > 1024) return bad("empty or too long subkey");
     if (hasBadChars(rest) || rest.find('/') != std::string_view::npos) return bad("illegal character in key");

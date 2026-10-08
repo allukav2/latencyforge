@@ -2,6 +2,7 @@
 
 #include "lf/state.hpp"
 #include "lf/system.hpp"
+#include "lf/win_power_api.hpp"
 #include "lf/win_process_api.hpp"
 #include "lf/win_registry.hpp"
 
@@ -49,21 +50,37 @@ bool Backend::init(const BackendOptions& opt) {
         log.warn("catalog", "presets.json could not be read", text.error().detail);
     }
 
+    std::unique_ptr<lf::IRegistry> base;
     if (demo) {
         auto mem = std::make_unique<lf::MemoryRegistry>();
         // 見本の値: 存在しない / 目標と違う / 既に目標値、が混ざるように。
         int i = 0;
         for (const auto& t : catalog->all()) {
+            if (t.isPowerTemplate()) continue;  // 電源設定は下の FakePowerApi が持つ
             const int k = i++ % 3;
             if (k == 1)
                 mem->set(t.target, lf::RegValue::dword(t.data.number == 0 ? 1 : 0));
             else if (k == 2)
                 mem->set(t.target, t.data);  // 既に目標値
         }
-        registry = std::move(mem);
+        base = std::move(mem);
+
+        // デモの電源プラン: 3 つ。USB のセレクティブ サスペンドは、どれも既定で「有効 (1)」。
+        auto fake = std::make_unique<lf::FakePowerApi>();
+        const char* usbSub = "2a737441-1930-4402-8d77-b2bebba308a3";
+        const char* suspend = "48e6b7a6-50f5-4782-a5d4-53bb8f07e226";
+        fake->addScheme("381b4222-f694-41f0-9685-ff5bb260df2e", "Balanced");
+        fake->addScheme("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "High performance");
+        fake->addScheme("a1841308-3541-4fab-bc81-f71556f20b4a", "Power saver");
+        for (const auto& [guid, scheme] : fake->schemes)
+            for (bool ac : {true, false}) fake->setValue(guid, usbSub, suspend, ac, 1);
+        fake->active = "381b4222-f694-41f0-9685-ff5bb260df2e";
+        powerApi = std::move(fake);
     } else {
-        registry = std::make_unique<lf::WinRegistry>();
+        base = std::make_unique<lf::WinRegistry>();
+        powerApi = std::make_unique<lf::WinPowerApi>();
     }
+    registry = std::make_unique<lf::RoutingRegistry>(std::move(base), std::make_unique<lf::PowerRegistry>(*powerApi));
 
     if (opt.demo && opt.seedDemoPending && !catalog->all().empty()) {
         // 「異常終了後に未完了の変更を検出して復元を提案する」経路を、本物の読み込み処理で再現する。

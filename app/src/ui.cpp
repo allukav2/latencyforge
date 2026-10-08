@@ -477,7 +477,9 @@ void Ui::drawContent() {
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pt);
     switch (m_page) {
         case Page::Home: pageHome(); break;
-        case Page::Kernel: pageKernel(); break;
+        case Page::Kernel: pageTweaks("kernel", Page::Kernel); break;
+        case Page::Usb: pageTweaks("usb", Page::Usb); break;
+        case Page::Gpu: pageGpu(); break;
         case Page::Affinity: pageAffinity(); break;
         case Page::Settings: pageSettings(); break;
         default: pagePlaceholder(m_page); break;

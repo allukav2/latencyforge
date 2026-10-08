@@ -2,6 +2,7 @@
 #include <imgui.h>
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -122,7 +123,14 @@ private:
     struct PresetInfo {
         int total = 0, pending = 0, unsupported = 0;  // pending = 未適用/外部変更で、適用すると書き込みが発生するもの
     };
-    void pageKernel();
+    // カーネル/タイマー と USB は同じ「tweak 一覧ページ」(カテゴリで切り替える)。
+    void pageTweaks(const char* category, Page page);
+    void drawUsbInfoCard();
+    void pageGpu();
+    const std::vector<Row>& rows() const { return m_rowsByCat.at(m_curCat); }
+    const lf::TweakDef* resolvedDef(const lf::TweakDef& base);   // 電源設定のテンプレートを、現在の電源プランに解決する
+    const lf::TweakDef* findTweak(const std::string& anyId) const;  // "<id>@<scheme>" のような解決済み ID からも検索できる
+    std::vector<std::string> trackedIdsIn(const std::string& category) const;
     void refreshRows();
     void requestApplyPreset(size_t index);
     void drawPresetCards();
@@ -130,7 +138,7 @@ private:
     void drawToolbar(bool opsEnabled, const char* disabledReason);
     void tweakCard(const Row& row, bool opsEnabled, const char* disabledReason);
     std::string shortValue(const std::optional<lf::RegValue>& v) const;
-    bool opsEnabled(const char** reason) const;
+    bool opsEnabled(const char** reason, Page page = Page::Kernel) const;
 
     // --- 適用/復元の流れ (ui_kernel.cpp)
     enum class OpKind { Apply, Revert };
@@ -185,7 +193,10 @@ private:
     std::string m_sysSummary;  // ログ用の 1 行要約
 
     // カーネルページ
-    std::vector<Row> m_rows;
+    std::map<std::string, std::vector<Row>> m_rowsByCat;  // "kernel" / "usb"
+    std::string m_curCat = "kernel";                        // 描画中のページのカテゴリ
+    std::map<std::string, lf::TweakDef> m_resolvedStore;    // 解決済みの定義 (ポインタを安定させるため map)
+    std::string m_activeScheme, m_activeSchemeName;         // 現在の電源プラン (GUID / 表示名)
     std::vector<PresetInfo> m_presetInfo;  // m_be->presets と同じ並び
     bool m_rowsDirty = true;
     bool m_rebootPending = false;

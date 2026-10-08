@@ -42,6 +42,11 @@ private:
 
 HKEY rootOf(RegHive h) { return h == RegHive::HKLM ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER; }
 
+// 電源設定 (POWER\...) はレジストリではない。RoutingRegistry が PowerRegistry へ回すので、ここへ来たら誤り。
+Error notRegistry(const RegPath& p) {
+    return Error{ErrorCode::InvalidPath, "not a registry path (power settings use PowerRegistry): " + p.display()};
+}
+
 Error winError(ErrorCode generic, LONG rc, const RegPath& p, const char* op) {
     const ErrorCode code = (rc == ERROR_ACCESS_DENIED) ? ErrorCode::AccessDenied : generic;
     return Error{code, std::string(op) + " failed for " + p.display(), static_cast<unsigned long>(rc)};
@@ -52,6 +57,7 @@ bool isMissing(LONG rc) { return rc == ERROR_FILE_NOT_FOUND || rc == ERROR_PATH_
 }  // namespace
 
 Result<std::optional<RegValue>> WinRegistry::read(const RegPath& p) {
+    if (p.hive == RegHive::Power) return notRegistry(p);
     RegKey key;
     LONG rc = RegOpenKeyExW(rootOf(p.hive), widen(p.subkey).c_str(), 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, key.put());
     if (isMissing(rc)) return std::optional<RegValue>{};
@@ -107,6 +113,7 @@ Result<std::optional<RegValue>> WinRegistry::read(const RegPath& p) {
 }
 
 Result<void> WinRegistry::write(const RegPath& p, const RegValue& v) {
+    if (p.hive == RegHive::Power) return notRegistry(p);
     RegKey key;
     LONG rc = RegCreateKeyExW(rootOf(p.hive), widen(p.subkey).c_str(), 0, nullptr, REG_OPTION_NON_VOLATILE,
                               KEY_SET_VALUE | KEY_WOW64_64KEY, nullptr, key.put(), nullptr);
@@ -137,6 +144,7 @@ Result<void> WinRegistry::write(const RegPath& p, const RegValue& v) {
 }
 
 Result<void> WinRegistry::deleteValue(const RegPath& p) {
+    if (p.hive == RegHive::Power) return notRegistry(p);
     RegKey key;
     LONG rc = RegOpenKeyExW(rootOf(p.hive), widen(p.subkey).c_str(), 0, KEY_SET_VALUE | KEY_WOW64_64KEY, key.put());
     if (isMissing(rc)) return {};

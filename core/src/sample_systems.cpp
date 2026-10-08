@@ -87,7 +87,10 @@ RawOs win11() {
     return o;
 }
 
-RawGpu nvidia(const char* name, uint64_t vramMb) { return {name, 0x10DE, 0x2504, vramMb * MB, false}; }
+// a.b.c.d (例: 32.0.15.6094) を、DXGI が返す 64 ビット値に詰める。
+constexpr uint64_t driver(uint64_t a, uint64_t b, uint64_t c, uint64_t d) { return (a << 48) | (b << 32) | (c << 16) | d; }
+
+RawGpu nvidia(const char* name, uint64_t vramMb) { return {name, 0x10DE, 0x2504, vramMb * MB, false, driver(32, 0, 15, 6094)}; }  // NVIDIA 560.94 相当
 RawGpu amdGpu(const char* name, uint64_t vramMb) { return {name, 0x1002, 0x744C, vramMb * MB, false}; }
 RawGpu intelGpu(const char* name, uint64_t vramMb) { return {name, 0x8086, 0xA7A0, vramMb * MB, false}; }
 RawGpu warp() { return {"Microsoft Basic Render Driver", 0x1414, 0x8C, 0, true}; }

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 ### Added
+- M6: USB page. USB selective suspend (AC and battery) is changed through the documented powrprof power-scheme API only, defined in
+  `data/tweaks/usb.json` and routed through the same engine as the registry tweaks (a new `POWER` path hive + `PowerRegistry`
+  adapter over `IPowerApi`): diff preview, backup of the previous value per power plan, per-item and full restore, rollback, dry-run.
+  The `POWER\*\<USB subgroup>` allow-list entry is the only power path the policy accepts. USB polling rates and drivers/INF files
+  are never touched (the source scan test forbids the driver/service APIs).
+- M6: GPU (NVIDIA) page. Detects NVIDIA GPUs (DXGI vendor ID) and shows the driver version; pages are disabled with a reason on
+  other systems. No GPU setting is changed: candidate settings are listed in `docs/gpu-candidates.md` and need approval first.
+  "Not verified on real NVIDIA hardware" is stated on the page and in the README.
 - M5: automatic Affinity optimization. A pure planner (`planAffinity`) picks the best cores from the detected topology — P-cores
   on hybrid CPUs, the larger-L3 CCD (merging CCX groups up to 6 cores) on multi-CCD AMD, nothing on simple CPUs — within a single
   processor group. Users register games (or pick from running processes); profiles are stored in `affinity.json`.

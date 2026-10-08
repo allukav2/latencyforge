@@ -33,9 +33,18 @@ std::vector<std::string> segmentsOf(const RegPath& p) {
     return v;
 }
 
+// 許可リストの接頭辞照合。セグメント "*" は「何かの 1 セグメント」(電源プランの GUID など実行時に決まる部分) に一致する。
+// 空のセグメントや、セグメントが足りない場合には一致しない。
 bool startsWith(const std::vector<std::string>& v, const std::vector<std::string>& prefix) {
     if (prefix.size() > v.size()) return false;
-    return std::equal(prefix.begin(), prefix.end(), v.begin());
+    for (size_t i = 0; i < prefix.size(); ++i) {
+        if (prefix[i] == "*") {
+            if (v[i].empty()) return false;
+            continue;
+        }
+        if (prefix[i] != v[i]) return false;
+    }
+    return true;
 }
 
 // --- 拒否ルール -------------------------------------------------------------------------------
@@ -97,7 +106,11 @@ constexpr std::array<std::string_view, 21> kDeniedValueNames = {
 }  // namespace
 
 Policy Policy::standard() {
-    return withAllowList({"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel"});
+    return withAllowList({
+        "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+        // 電源設定 (powrprof API): USB のサブグループ (GUID_USB_SETTINGS) だけ。"*" は電源プランの GUID。
+        "POWER\\*\\2a737441-1930-4402-8d77-b2bebba308a3",
+    });
 }
 
 Policy Policy::withAllowList(const std::vector<std::string>& prefixes) {

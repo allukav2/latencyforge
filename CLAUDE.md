@@ -95,6 +95,16 @@ ImGui は 1.92 以降(動的フォント API `PushFont(font, size)` を使用)�
   (ソース検査テストあり)。開発中に実機の他プロセスへアフィニティを書き込む操作もしない(HKLM と同様、ユーザーの承認が要る)。
   新テストは CI 結果待ち。
 
+- M5 は CI 緑(単体 209 + HKCU 統合 7)。M6 実装済み(USB: 電源設定を `POWER\...` パスとして Engine に載せる、`IPowerApi`/`PowerRegistry`/`FakePowerApi`、
+  `data/tweaks/usb.json`。GPU(NVIDIA): 検出表示のみ・設定変更なし。候補は `docs/gpu-candidates.md`、承認待ち)。新テストは CI 結果待ち。
+  **実機の電源プランへの書き込み**も HKLM と同様、ユーザーの承認が要る(開発中は `--demo` の FakePowerApi を使う)。
+
+## 電源設定 (POWER) の不変条件
+- 電源設定は `RegHive::Power` のパス (`POWER\<プラン GUID>\<サブグループ GUID>` / `<設定 GUID>:ac|dc`) として Engine に載せる。定義では `ACTIVE` がテンプレートで、
+  UI が `resolveForScheme` で現在のプランに解決してから使う (id は `<元の id>@<プラン GUID>` = プランごとに別バックアップ)。`PowerRegistry` は `ACTIVE` を拒否する。
+- 許可リストは `POWER\*\2a737441-...` (USB サブグループ) のみ。新しい電源設定は、公式の電源設定として確認でき、承認を得てから許可リストに足す。
+- USB のポーリングレート変更、ドライバー/INF の改変、サービス登録は禁止 (ソース検査テストが関連 API の出現を検査)。
+
 ## Affinity の不変条件(変更時は必ず守る)
 - 触る前に変更前の値をジャーナルへ保存(保存できなければ変更しない)。作成時刻で PID 再利用を照合。既存アフィニティを広げない。
 - 保護/重要/他ユーザー/他セッション/Windows フォルダ/名前除外(audiodg・アンチチート等)には触れない。開けない・失敗はスキップしてログ。

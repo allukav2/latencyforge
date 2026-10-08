@@ -10,6 +10,7 @@
 #include "lf/log.hpp"
 #include "lf/memory_registry.hpp"
 #include "lf/policy.hpp"
+#include "lf/power_api.hpp"
 #include "lf/preset.hpp"
 #include "lf/tweak.hpp"
 
@@ -29,7 +30,8 @@ public:
     bool init(const BackendOptions& opt);
 
     lf::Logger log;
-    std::unique_ptr<lf::IRegistry> registry;
+    std::unique_ptr<lf::IPowerApi> powerApi;  // registry (の中の PowerRegistry) より後に破棄されるよう、先に宣言する
+    std::unique_ptr<lf::IRegistry> registry;  // HKLM/HKCU と 電源設定 (POWER) を振り分ける RoutingRegistry
     lf::Policy policy = lf::Policy::standard();
     std::unique_ptr<lf::TweakCatalog> catalog;
     std::vector<lf::PresetDef> presets;  // data/presets.json (検証済み)
@@ -41,6 +43,7 @@ public:
     std::optional<lf::Error> stateError;                // 状態ファイルが読めない/不正 (操作は拒否される)
 
     std::vector<const lf::TweakDef*> tweaksIn(const std::string& category) const;
+    lf::IPowerApi& power() { return *powerApi; }
 
     // --- Affinity 自動最適化 (M5)。システム検出の後に呼ぶ。
     // featureAvailable=false (ARM64 など) のときは、設定を読んでも有効にしない。

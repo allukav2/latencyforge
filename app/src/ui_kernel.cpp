@@ -54,8 +54,28 @@ ImVec4 Ui::statusColor(lf::ItemStatus s) const {
     }
 }
 
-bool Ui::opsEnabled(const char** reason) const {
-    const size_t k = static_cast<size_t>(Page::Kernel);
+const lf::TweakDef* Ui::findTweak(const std::string& anyId) const { return m_be->catalog->find(lf::baseTweakId(anyId)); }
+
+const lf::TweakDef* Ui::resolvedDef(const lf::TweakDef& base) {
+    if (!base.isPowerTemplate() || m_activeScheme.empty()) return &base;  // 解決できなければテンプレートのまま (Engine が拒否する)
+    const std::string key = base.id + "@" + m_activeScheme;
+    auto it = m_resolvedStore.find(key);
+    if (it == m_resolvedStore.end()) it = m_resolvedStore.emplace(key, lf::resolveForScheme(base, m_activeScheme)).first;
+    return &it->second;
+}
+
+// このページのカテゴリに属する、バックアップのある (= 元に戻せる) tweak の ID。他の電源プランで適用したものも含む。
+std::vector<std::string> Ui::trackedIdsIn(const std::string& category) const {
+    std::vector<std::string> ids;
+    for (const auto& [id, rec] : m_be->engine->applied()) {
+        const lf::TweakDef* d = findTweak(id);
+        if (d && d->category == category) ids.push_back(id);
+    }
+    return ids;
+}
+
+bool Ui::opsEnabled(const char** reason, Page page) const {
+    const size_t k = static_cast<size_t>(page);
     if (!m_feat[k].available) {  // このシステムでは対象外 (OS ビルド / ARM64 など)
         *reason = m_featReason[k].c_str();
         return false;
@@ -72,19 +92,38 @@ bool Ui::opsEnabled(const char** reason) const {
 }
 
 void Ui::refreshRows() {
-    // 全 tweak の状態を 1 回だけ読む (ページ表示・プリセットの件数表示で共用)。
-    std::unordered_map<std::string, lf::TweakStatus> cache;
-    for (const auto& d : m_be->catalog->all()) cache.emplace(d.id, m_be->engine->status(d));
+    // 現在の電源プラン (電源設定の tweak は、このプランに解決して扱う)。読めなければ空 = 解決されず、操作は拒否される。
+    m_activeScheme.clear();
+    m_activeSchemeName.clear();
+    if (auto a = m_be->power().activeSchemeGuid(); a.ok()) {
+        m_activeScheme = a.value();
+        if (auto n = m_be->power().schemeName(a.value()); n.ok()) m_activeSchemeName = n.value();
+    }
 
-    m_rows.clear();
-    for (const lf::TweakDef* d : m_be->tweaksIn("kernel")) m_rows.push_back({d, cache[d->id]});
+    // 全 tweak の状態を 1 回だけ読む (ページ表示・プリセットの件数表示で共用)。キーは解決済みの ID。
+    std::unordered_map<std::string, lf::TweakStatus> cache;
+    for (const auto& d : m_be->catalog->all()) {
+        const lf::TweakDef* r = resolvedDef(d);
+        cache.emplace(r->id, m_be->engine->status(*r));
+    }
+
+    m_rowsByCat.clear();
+    for (const char* cat : {"kernel", "usb"}) {
+        auto& rows = m_rowsByCat[cat];
+        for (const lf::TweakDef* d : m_be->tweaksIn(cat)) {
+            const lf::TweakDef* r = resolvedDef(*d);
+            rows.push_back({r, cache[r->id]});
+        }
+    }
 
     m_presetInfo.clear();
     for (const lf::PresetDef& p : m_be->presets) {
         PresetInfo pi;
         for (const std::string& id : p.tweakIds) {
             ++pi.total;
-            auto it = cache.find(id);
+            const lf::TweakDef* base = m_be->catalog->find(id);
+            if (!base) continue;
+            auto it = cache.find(resolvedDef(*base)->id);
             if (it == cache.end()) continue;
             const lf::TweakState s = it->second.state;
             if (s == lf::TweakState::Unsupported || s == lf::TweakState::Blocked)
@@ -101,7 +140,9 @@ void Ui::refreshRows() {
 void Ui::requestApplyPreset(size_t index) {
     if (index >= m_be->presets.size()) return;
     const lf::PresetDef& p = m_be->presets[index];
-    requestApply(lf::resolvePreset(p, *m_be->catalog));  // 通常の適用と同じ: 差分プレビュー → 確認 → 適用
+    std::vector<const lf::TweakDef*> defs;
+    for (const lf::TweakDef* b : lf::resolvePreset(p, *m_be->catalog)) defs.push_back(resolvedDef(*b));
+    requestApply(std::move(defs));  // 通常の適用と同じ: 差分プレビュー → 確認 → 適用
     m_op.presetTitle = pick(p.title);
 }
 
@@ -186,30 +227,67 @@ void Ui::confirmOperation() {
 
 // ---------------------------------------------------------------- ページ
 
-void Ui::pageKernel() {
+void Ui::pageTweaks(const char* category, Page page) {
     if (m_rowsDirty) refreshRows();
+    m_curCat = category;
+    const bool isUsb = m_curCat == "usb";
 
+    // 開発用 (--demo): --show preview / result / expanded (カーネル)、usb-preview / usb-result / usb-expanded (USB)
     if (m_demo && !m_demoShowDone) {  // 開発用: スクリーンショットのため、ダイアログ等を自動で開く
-        m_demoShowDone = true;
-        if (m_demoShow == "expanded" && !m_rows.empty()) m_expanded[m_rows.front().def->id] = true;
-        if (m_demoShow == "preview" || m_demoShow == "result") {
-            std::vector<const lf::TweakDef*> todo;
-            for (const Row& r : m_rows)
-                if (r.st.state == lf::TweakState::NotApplied || r.st.state == lf::TweakState::Drifted) todo.push_back(r.def);
-            requestApply(std::move(todo));
-            if (m_demoShow == "result") confirmOperation();
+        const std::string show = m_demoShow;
+        const bool forThisPage = isUsb ? show.rfind("usb-", 0) == 0 : (show == "expanded" || show == "preview" || show == "result");
+        if (forThisPage) {
+            m_demoShowDone = true;
+            const std::string what = isUsb ? show.substr(4) : show;
+            if (what == "expanded" && !rows().empty()) m_expanded[rows().front().def->id] = true;
+            if (what == "preview" || what == "result") {
+                std::vector<const lf::TweakDef*> todo;
+                for (const Row& r : rows())
+                    if (r.st.state == lf::TweakState::NotApplied || r.st.state == lf::TweakState::Drifted) todo.push_back(r.def);
+                requestApply(std::move(todo));
+                if (what == "result") confirmOperation();
+            }
         }
     }
 
-    pageHeader(t("nav.kernel"), t("kernel.subtitle"));
-    drawFeatureBanner(Page::Kernel);
+    pageHeader(t(isUsb ? "nav.usb" : "nav.kernel"), t(isUsb ? "usb.subtitle" : "kernel.subtitle"));
+    drawFeatureBanner(page);
+    if (isUsb) drawUsbInfoCard();
     drawStatusBanners();
 
     const char* why = nullptr;
-    const bool ops = opsEnabled(&why);
+    bool ops = opsEnabled(&why, page);
+    if (ops && isUsb && m_activeScheme.empty()) {  // 電源プランを読めなければ操作しない (適用先を特定できない)
+        ops = false;
+        why = t("usb.noScheme");
+    }
     drawToolbar(ops, why);
-    for (const Row& r : m_rows) tweakCard(r, ops, why);
-    if (m_rows.empty()) dimText(t("kernel.empty"));
+    for (const Row& r : rows()) tweakCard(r, ops, why);
+    if (rows().empty()) dimText(t("kernel.empty"));
+}
+
+// USB ページ: 現在の電源プランと、適用先についての説明。
+void Ui::drawUsbInfoCard() {
+    if (beginCard("##usb_info")) {
+        pushBold();
+        ImGui::TextUnformatted(t("usb.planTitle"));
+        popFont();
+        if (m_activeScheme.empty()) {
+            coloredText(m_pal.danger, t("usb.noScheme"));
+        } else {
+            ImGui::TextUnformatted((m_activeSchemeName.empty() ? m_activeScheme : m_activeSchemeName).c_str());
+            ImGui::PushStyleColor(ImGuiCol_Text, m_pal.textDim);
+            ImGui::TextUnformatted(m_activeScheme.c_str());
+            ImGui::PopStyleColor();
+        }
+        dimText(t("usb.planNote"));
+        // 他の電源プランで適用した項目の数 (これらも「すべて元に戻す」で戻る)
+        int others = 0;
+        for (const auto& id : trackedIdsIn("usb"))
+            if (id.find('@') != std::string::npos && id.find(m_activeScheme) == std::string::npos) ++others;
+        if (others > 0) coloredText(m_pal.warn, fmt("usb.otherPlans", {std::to_string(others)}).c_str());
+    }
+    endCard();
 }
 
 void Ui::drawStatusBanners() {
@@ -253,7 +331,7 @@ void Ui::drawStatusBanners() {
         }
         endCard();
     }
-    if (m_rebootPending) {
+    if (m_rebootPending && m_curCat == "kernel") {  // 再起動が必要なのはレジストリの tweak だけ (電源設定は即時に反映される)
         if (bannerBegin("##b_reboot", m_pal.warn)) {
             pushBold();
             coloredText(m_pal.warn, t("kernel.rebootTitle"));
@@ -275,15 +353,16 @@ void Ui::drawStatusBanners() {
 }
 
 void Ui::drawToolbar(bool ops, const char* why) {
-    int applicable = 0, tracked = 0;
+    int applicable = 0;
     std::vector<const lf::TweakDef*> todo;
-    for (const Row& r : m_rows) {
+    for (const Row& r : rows()) {
         if (r.st.state == lf::TweakState::NotApplied || r.st.state == lf::TweakState::Drifted) {
             ++applicable;
             todo.push_back(r.def);
         }
-        if (r.st.tracked) ++tracked;
     }
+    const std::vector<std::string> trackedIds = trackedIdsIn(m_curCat);  // 他の電源プランで適用したものも含む
+    const size_t tracked = trackedIds.size();
 
     if (!beginCard("##toolbar")) {
         endCard();
@@ -303,12 +382,7 @@ void Ui::drawToolbar(bool ops, const char* why) {
     if (primaryButton(applyLabel.c_str(), 0, ops && applicable > 0, applyWhy)) requestApply(todo);
     ImGui::SameLine();
     const char* revertWhy = !ops ? why : t("common.nothingToRevert");
-    if (secondaryButton(t("kernel.revertAll"), 0, ops && tracked > 0, revertWhy)) {
-        std::vector<std::string> ids;
-        for (const Row& r : m_rows)
-            if (r.st.tracked) ids.push_back(r.def->id);
-        requestRevert(std::move(ids));
-    }
+    if (secondaryButton(t("kernel.revertAll"), 0, ops && tracked > 0, revertWhy)) requestRevert(trackedIds);
     ImGui::SameLine();
     if (secondaryButton(t("common.reload"))) m_rowsDirty = true;
     endCard();
@@ -359,7 +433,10 @@ void Ui::tweakCard(const Row& r, bool ops, const char* why) {
                                                                 : std::to_string(d.minBuild) + "-" + std::to_string(d.maxBuild);
             reason = fmt("tweak.unsupportedBuild", {std::to_string(m_be->osBuild), range});
         } else if (st.state == lf::TweakState::Blocked && st.error) {
-            reason = t(lf::errorKey(st.error->code));
+            // 電源設定が、現在の電源プランに存在しない場合は専用の説明にする
+            reason = (d.isPowerTemplate() || d.id.find('@') != std::string::npos) && st.error->code == lf::ErrorCode::UnsupportedValueType
+                         ? t("usb.settingMissing")
+                         : t(lf::errorKey(st.error->code));
         }
         ImGui::SameLine(ImGui::GetContentRegionMax().x - S(44));
         if (toggleRaw(d.id.c_str(), on, canToggle, reason.empty() ? nullptr : reason.c_str())) {
@@ -478,14 +555,14 @@ void Ui::drawReportItems(const lf::Report& rep, bool revertWording) {
     std::vector<size_t> order(rep.items.size());
     for (size_t k = 0; k < order.size(); ++k) order[k] = k;
     std::stable_partition(order.begin(), order.end(), [&](size_t k) {
-        const lf::TweakDef* d = m_be->catalog->find(rep.items[k].tweakId);
+        const lf::TweakDef* d = findTweak(rep.items[k].tweakId);
         return d && d->risk == lf::Risk::Medium;
     });
 
     for (size_t pos = 0; pos < order.size(); ++pos) {
         const size_t i = order[pos];
         const lf::ItemResult& it = rep.items[i];
-        const lf::TweakDef* d = m_be->catalog->find(it.tweakId);
+        const lf::TweakDef* d = findTweak(it.tweakId);
         ImGui::PushID(static_cast<int>(i));
 
         // リスク「中」の項目は背景と枠で強調する (描画順の都合で、背景は別チャンネルに後から描く)。
@@ -600,7 +677,7 @@ void Ui::drawPreviewModal() {
     }
     bool mediumChange = false;
     for (const auto& it : rep.items) {
-        const lf::TweakDef* d = m_be->catalog->find(it.tweakId);
+        const lf::TweakDef* d = findTweak(it.tweakId);
         if (d && d->risk == lf::Risk::Medium && it.status == lf::ItemStatus::WouldChange) mediumChange = true;
     }
     if (mediumChange) {

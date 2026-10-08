@@ -9,7 +9,11 @@
 
 namespace lf {
 
-enum class RegHive { HKLM, HKCU };
+// Power = 電源プランの設定 (powrprof の文書化された API)。レジストリではないが、同じ「値」の抽象 (パス + 値名 + DWORD) で
+// 扱うことで、バックアップ / 復元 / ロールバック / 差分プレビュー / ホワイトリストをそのまま使い回す。
+//   key  : "POWER\<電源プランの GUID または ACTIVE>\<サブグループ GUID>"
+//   value: "<設定の GUID>:ac" または "<設定の GUID>:dc"
+enum class RegHive { HKLM, HKCU, Power };
 enum class RegType { Dword, Qword, String, ExpandString };
 
 struct RegValue {

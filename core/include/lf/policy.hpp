@@ -15,7 +15,7 @@ namespace lf {
 // 2. 許可リスト (キー接頭辞、セグメント境界、大文字小文字無視) に一致しなければ拒否。
 class Policy {
 public:
-    // 製品用: 許可するのは Session Manager\kernel のみ。機能追加時 (USB/GPU ページ) にここへ追加する。
+    // 製品用: 許可するのは Session Manager\kernel と、電源設定の USB サブグループのみ。機能追加時にここへ追加する。
     static Policy standard();
     // 拒否リストはそのまま、許可リストだけ差し替える (単体/統合テスト用)。
     static Policy withAllowList(const std::vector<std::string>& keyPrefixes);

@@ -258,7 +258,11 @@ TEST(SourceRules, ForbiddenProcessAndInjectionApisNeverAppearInProductCode) {
                                "WriteProcessMemory", "ReadProcessMemory", "CreateRemoteThread", "VirtualAllocEx", "VirtualProtectEx",
                                "SetWindowsHookEx", "NtSetInformationProcess", "QueueUserAPC", "DebugActiveProcess",
                                "PROCESS_VM_WRITE", "PROCESS_VM_READ", "PROCESS_VM_OPERATION", "PROCESS_CREATE_THREAD",
-                               "PROCESS_TERMINATE", "TerminateProcess", "SuspendThread", "SetThreadContext", "MiniDumpWriteDump"};
+                               "PROCESS_TERMINATE", "TerminateProcess", "SuspendThread", "SetThreadContext", "MiniDumpWriteDump",
+                               // ドライバー/INF の改変、サービスの登録 (USB ポーリングレート変更などの非公式ハックの入口) も禁止
+                               "SetupDiCallClassInstaller", "SetupDiSetClassInstallParams", "DiInstallDriver", "DiInstallDevice",
+                               "InstallHinfSection", "UpdateDriverForPlugAndPlayDevices", "NtLoadDriver", "ZwLoadDriver",
+                               "CreateServiceW", "CreateServiceA", "StartServiceW", "StartServiceA"};
     for (const auto& [name, text] : sources)
         for (const char* api : forbidden) EXPECT_EQ(text.find(api), std::string::npos) << name << " uses forbidden API " << api;
 }

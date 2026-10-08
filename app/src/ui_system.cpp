@@ -102,6 +102,56 @@ void Ui::drawFeatureBanner(Page page) {
     endCard();
 }
 
+// ---------------------------------------------------------------- GPU (NVIDIA) ページ
+
+// 現時点では、NVIDIA GPU の検出結果と注意書きだけを表示する。設定の変更は、公式に文書化されていると確認できたものだけを
+// 承認を得てから追加する方針 (候補は docs/gpu-candidates.md)。
+void Ui::pageGpu() {
+    pageHeader(t("nav.gpu"), t("gpu.subtitle"));
+    drawFeatureBanner(Page::Gpu);  // NVIDIA GPU が無い場合は、ここに理由が出る
+
+    // 「NVIDIA 実機では未検証」は、常に明記する。
+    if (beginCard("##gpu_unverified")) {
+        const ImVec2 p = ImGui::GetWindowPos();
+        const ImVec2 s = ImGui::GetWindowSize();
+        ImGui::GetWindowDrawList()->AddRect(p + ImVec2(0.5f, 0.5f), p + s - ImVec2(0.5f, 0.5f), u32(withAlpha(m_pal.warn, 0.55f)), S(12));
+        pushBold();
+        coloredText(m_pal.warn, t("gpu.unverifiedTitle"));
+        popFont();
+        dimText(t("gpu.unverifiedBody"));
+    }
+    endCard();
+
+    if (!m_feat[static_cast<size_t>(Page::Gpu)].available) return;
+
+    if (beginCard("##gpu_list")) {
+        pushBold();
+        ImGui::TextUnformatted(t("gpu.detected"));
+        popFont();
+        for (const lf::GpuInfo& g : m_sys.gpus) {
+            if (g.vendor != lf::GpuVendor::Nvidia || g.software) continue;
+            ImGui::Dummy(ImVec2(0, S(2)));
+            ImGui::TextUnformatted(g.name.c_str());
+            std::string line = megabytes(g.vramBytes);
+            if (const std::string nv = lf::nvidiaDriverVersion(g.driverVersion); !nv.empty())
+                line += "  /  " + std::string(t("gpu.driver")) + " " + nv + " (" + lf::formatDriverVersion(g.driverVersion) + ")";
+            else if (g.driverVersion)
+                line += "  /  " + std::string(t("gpu.driver")) + " " + lf::formatDriverVersion(g.driverVersion);
+            dimText(line.c_str());
+        }
+    }
+    endCard();
+
+    if (beginCard("##gpu_tweaks")) {
+        pushBold();
+        ImGui::TextUnformatted(t("gpu.noTweaksTitle"));
+        popFont();
+        dimText(t("gpu.noTweaksBody"));
+        coloredText(m_pal.textDim, t("gpu.effectNote"));
+    }
+    endCard();
+}
+
 // ---------------------------------------------------------------- システム情報カード
 
 void Ui::drawSystemCard() {
@@ -169,6 +219,10 @@ void Ui::drawSystemCard() {
             std::string v = g.name;
             if (g.software) v += std::string(" (") + t("sys.software") + ")";
             else if (g.vramBytes) v += "  " + megabytes(g.vramBytes);
+            if (!g.software && g.driverVersion) {  // NVIDIA は "560.94" の表記、それ以外は a.b.c.d
+                const std::string nv = lf::nvidiaDriverVersion(g.driverVersion);
+                v += "  /  " + std::string(t("gpu.driver")) + " " + (g.vendor == lf::GpuVendor::Nvidia && !nv.empty() ? nv : lf::formatDriverVersion(g.driverVersion));
+            }
             keyValue(i == 0 ? t("sys.gpu") : "", v.c_str());
         }
     }

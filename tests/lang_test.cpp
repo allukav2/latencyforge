@@ -60,11 +60,20 @@ TEST(Lang, EverySystemMessageKeyExistsInBothLanguages) {
 TEST(Lang, EveryPlaceholderPageHasItsTexts) {
     for (const char* file : {"ja.json", "en.json"}) {
         const auto tr = load(file);
-        for (const char* page : {"affinity", "usb", "gpu", "bench", "backup", "log"}) {
+        for (const char* page : {"bench", "backup", "log"}) {
             EXPECT_TRUE(tr.has(std::string("nav.") + page)) << file << " nav." << page;
             EXPECT_TRUE(tr.has(std::string("placeholder.") + page + ".subtitle")) << file << " " << page;
             EXPECT_TRUE(tr.has(std::string("placeholder.") + page + ".desc")) << file << " " << page;
         }
+        // USB / GPU は専用ページ (ui_kernel / ui_system が使うキー)
+        for (const char* k : {"usb.subtitle", "usb.planTitle", "usb.planNote", "usb.noScheme", "usb.otherPlans", "usb.settingMissing",
+                              "gpu.subtitle", "gpu.unverifiedTitle", "gpu.unverifiedBody", "gpu.detected", "gpu.driver",
+                              "gpu.noTweaksTitle", "gpu.noTweaksBody", "gpu.effectNote"})
+            EXPECT_TRUE(tr.has(k)) << file << " missing " << k;
+        // 「NVIDIA 実機では未検証」の明記 (要件)
+        const std::string unverified = std::string(tr.tr("gpu.unverifiedTitle")) + tr.tr("gpu.unverifiedBody");
+        EXPECT_TRUE(unverified.find("NVIDIA") != std::string::npos && (unverified.find("未検証") != std::string::npos || unverified.find("not been tested") != std::string::npos || unverified.find("Not verified") != std::string::npos))
+            << file;
     }
 }
 
