@@ -29,13 +29,30 @@ struct RestoreGuard {
 
 uint64_t lowestBit(uint64_t m) { return m & (~m + 1); }
 
+// 一時フォルダ。破棄時に必ず削除する (使用中で消せない場合は、少し待って再試行する)。
+struct TempDir {
+    fs::path path;
+    TempDir() {
+        path = fs::temp_directory_path() / ("lf_tests_ping_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(GetTickCount64()));
+        std::error_code ec;
+        fs::create_directories(path, ec);
+    }
+    ~TempDir() {
+        for (int i = 0; i < 20; ++i) {
+            std::error_code ec;
+            fs::remove_all(path, ec);
+            if (!ec && !fs::exists(path, ec)) return;
+            Sleep(100);
+        }
+    }
+};
+
 // 数秒だけ生きる子プロセス (コンソールなし)
 struct Child {
     PROCESS_INFORMATION pi{};
     bool started = false;
-    Child() {
+    explicit Child(std::wstring cmd = L"cmd.exe /c ping -n 20 127.0.0.1 >nul") {
         STARTUPINFOW si{sizeof si};
-        std::wstring cmd = L"cmd.exe /c ping -n 20 127.0.0.1 >nul";
         started = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi) != FALSE;
     }
     ~Child() {
@@ -106,7 +123,11 @@ TEST(WinProcessApi, MinimalRightsAreEnoughToChangeAChildProcess) {
     ASSERT_TRUE(q.ok()) << q.error().detail;
     const auto original = q.value();
     EXPECT_TRUE(original.sameUser);
-    EXPECT_EQ(lf::checkTarget(original, api.selfPid(), api.currentSessionId()), lf::SkipReason::None);
+    // この子プロセスは cmd.exe で、C:\Windows\System32 配下にある。Windows フォルダ配下の実行ファイルは、
+    // 安全判定 (checkTarget) が名前に関係なく拒否する設計なので、ここでの期待値は WindowsDir になる。
+    // (ここで確認したいのは API 層の挙動 = 最小権限だけで別プロセスのアフィニティを変更・復元できること。)
+    // 「安全判定が許可する子プロセス」の経路は、次のテスト (一時フォルダにコピーした ping.exe) で確認する。
+    EXPECT_EQ(lf::checkTarget(original, api.selfPid(), api.currentSessionId()), lf::SkipReason::WindowsDir);
     if (std::popcount(original.affinity.mask) < 2) GTEST_SKIP() << "needs at least two logical processors";
 
     const uint64_t one = lowestBit(original.affinity.mask);
@@ -114,6 +135,41 @@ TEST(WinProcessApi, MinimalRightsAreEnoughToChangeAChildProcess) {
     EXPECT_EQ(api.query(child.pid()).value().affinity.mask, one);
     ASSERT_TRUE(api.setAffinity(child.pid(), original.startTime, original.affinity).ok());
     EXPECT_EQ(api.query(child.pid()).value().affinity.mask, original.affinity.mask);
+}
+
+// 一時フォルダにコピーした ping.exe (Windows フォルダの外) を起動し、安全判定が許可する対象として扱えることを確認する。
+// 子プロセスと一時ファイルは、テストが成功・失敗のどちらで終わっても必ず片付ける。
+TEST(WinProcessApi, ACopyOfPingOutsideTheWindowsFolderIsAValidTarget) {
+    TempDir tmp;  // 先に宣言する = 子プロセスの終了後に破棄される (ファイルが使用中でなくなってから削除)
+    wchar_t sysDir[MAX_PATH]{};
+    ASSERT_GT(GetSystemDirectoryW(sysDir, MAX_PATH), 0u);
+    const fs::path src = fs::path(sysDir) / L"PING.EXE";
+    const fs::path exe = tmp.path / L"lf_ping_copy.exe";
+    std::error_code ec;
+    fs::copy_file(src, exe, fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << "could not copy ping.exe: " << ec.message();
+
+    Child child(L"\"" + exe.wstring() + L"\" -n 20 127.0.0.1");
+    ASSERT_TRUE(child.started);
+    lf::WinProcessApi api;
+    auto q = api.query(child.pid());
+    ASSERT_TRUE(q.ok()) << q.error().detail;
+    const auto original = q.value();
+    EXPECT_TRUE(original.sameUser);
+    EXPECT_FALSE(original.inWindowsDir) << original.imagePath;
+    EXPECT_EQ(lf::checkTarget(original, api.selfPid(), api.currentSessionId()), lf::SkipReason::None)
+        << "a process outside the Windows folder, owned by us, in our session, is a valid target";
+    if (std::popcount(original.affinity.mask) < 2) GTEST_SKIP() << "needs at least two logical processors";
+
+    const uint64_t one = lowestBit(original.affinity.mask);
+    ASSERT_TRUE(api.setAffinity(child.pid(), original.startTime, {original.affinity.group, one}).ok());
+    EXPECT_EQ(api.query(child.pid()).value().affinity.mask, one);
+    ASSERT_TRUE(api.setAffinity(child.pid(), original.startTime, original.affinity).ok());
+    EXPECT_EQ(api.query(child.pid()).value().affinity.mask, original.affinity.mask);
+
+    // 候補一覧にも載る (実機の一覧は他のプロセスも含むので、この名前だけを確認する)
+    const auto list = lf::listTargetCandidates(api);
+    EXPECT_TRUE(std::any_of(list.begin(), list.end(), [&](const lf::ProcessState& c) { return c.pid == child.pid(); }));
 }
 
 TEST(WinProcessApi, ARecycledPidIsRefusedBecauseTheStartTimeDiffers) {
