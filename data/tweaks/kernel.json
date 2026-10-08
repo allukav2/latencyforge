@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "tweaks": [
+    {
+      "id": "kernel.timer_check_flags",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "TimerCheckFlags",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "タイマーチェックフラグ", "en": "Timer check flags" },
+      "summary": {
+        "ja": "カーネルのタイマー関連チェックフラグを 0 にします。",
+        "en": "Sets the kernel timer check flags value to 0."
+      },
+      "details": {
+        "ja": "Session Manager\\kernel の TimerCheckFlags を 0 に設定します。この値は公式に文書化されておらず、値の存在や効果は Windows のビルドに依存します。",
+        "en": "Sets TimerCheckFlags under Session Manager\\kernel to 0. This value is not officially documented; whether it exists and what it does depends on the Windows build."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。変化がない場合があります。",
+        "en": "The effect is build-dependent and may be nil on your system."
+      },
+      "risk": "low",
+      "requiresReboot": true
+    },
+    {
+      "id": "kernel.serialize_timer_expiration",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "SerializeTimerExpiration",
+      "type": "REG_DWORD",
+      "data": 1,
+      "title": { "ja": "タイマー満了処理の直列化", "en": "Serialize timer expiration" },
+      "summary": {
+        "ja": "タイマー満了の処理をまとめて直列に扱うよう設定します。",
+        "en": "Asks the kernel to process timer expirations in a serialized manner."
+      },
+      "details": {
+        "ja": "SerializeTimerExpiration を 1 に設定します。Windows 10 2004 以降のタイマー処理に関連する値として知られていますが、公式な仕様説明は限られており、効果はビルド依存です。",
+        "en": "Sets SerializeTimerExpiration to 1. It is known as a timer-handling value on Windows 10 2004 and later, but official documentation is limited and the effect is build-dependent."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。",
+        "en": "The effect is build-dependent."
+      },
+      "risk": "low",
+      "requiresReboot": true,
+      "minBuild": 19041
+    },
+    {
+      "id": "kernel.per_cpu_clock_tick_scheduling",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "EnablePerCpuClockTickScheduling",
+      "type": "REG_DWORD",
+      "data": 1,
+      "title": { "ja": "CPU ごとのクロックティック スケジューリング", "en": "Per-CPU clock tick scheduling" },
+      "summary": {
+        "ja": "クロックティックを CPU ごとにスケジュールする設定を有効にします。",
+        "en": "Enables per-CPU scheduling of the clock tick."
+      },
+      "details": {
+        "ja": "EnablePerCpuClockTickScheduling を 1 に設定します。公式に文書化されていない値で、効果や有無は Windows のビルドに依存します。",
+        "en": "Sets EnablePerCpuClockTickScheduling to 1. This value is not officially documented; its existence and effect depend on the Windows build."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。変化がない場合があります。",
+        "en": "The effect is build-dependent and may be nil on your system."
+      },
+      "risk": "low",
+      "requiresReboot": true
+    },
+    {
+      "id": "kernel.global_timer_resolution_requests",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "GlobalTimerResolutionRequests",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "グローバルなタイマー分解能要求", "en": "Global timer resolution requests" },
+      "summary": {
+        "ja": "タイマー分解能の要求をシステム全体に適用する動作を 0 (オフ) にします。",
+        "en": "Sets the global timer-resolution-request behavior to 0 (off)."
+      },
+      "details": {
+        "ja": "GlobalTimerResolutionRequests を 0 に設定します。Windows 10 2004 以降ではプロセスごとの分解能要求が既定のため、すでに既定値と同じで変化がない可能性があります。",
+        "en": "Sets GlobalTimerResolutionRequests to 0. On Windows 10 2004 and later, per-process resolution requests are the default, so this may already match the default and change nothing."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。既定と同じ場合は変化しません。",
+        "en": "The effect is build-dependent; it is a no-op if it already matches the default."
+      },
+      "risk": "low",
+      "requiresReboot": true,
+      "minBuild": 19041
+    },
+    {
+      "id": "kernel.drive_remapping_mitigation",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "DriveRemappingMitigation",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "ドライブ再マッピング緩和策", "en": "Drive remapping mitigation" },
+      "summary": {
+        "ja": "ドライブの再マッピングに関する緩和策の設定を 0 にします。",
+        "en": "Sets the drive-remapping mitigation value to 0."
+      },
+      "details": {
+        "ja": "DriveRemappingMitigation を 0 に設定します。名称に「緩和策 (mitigation)」を含み、公式に文書化されていないため、意味と影響はビルドに依存します。このツールの他の項目よりも慎重に判断してください。",
+        "en": "Sets DriveRemappingMitigation to 0. The name refers to a mitigation and the value is not officially documented, so its meaning and impact depend on the build. Consider it more carefully than the other items."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。名称が緩和策のため、リスクを「中」としています。",
+        "en": "The effect is build-dependent. Rated medium risk because the name refers to a mitigation."
+      },
+      "risk": "medium",
+      "requiresReboot": true
+    },
+    {
+      "id": "kernel.wer_user_reporting",
+      "category": "kernel",
+      "path": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel",
+      "value": "EnableWerUserReporting",
+      "type": "REG_DWORD",
+      "data": 0,
+      "title": { "ja": "WER ユーザーレポートの無効化", "en": "Disable WER user reporting" },
+      "summary": {
+        "ja": "Windows エラー報告 (WER) のユーザー レポートに関する設定を 0 にします。",
+        "en": "Sets the Windows Error Reporting (WER) user-reporting value to 0."
+      },
+      "details": {
+        "ja": "EnableWerUserReporting を 0 に設定します。公式に文書化されていない値で、効果はビルド依存です。クラッシュ時の情報収集に影響する可能性があります。",
+        "en": "Sets EnableWerUserReporting to 0. The value is not officially documented and its effect is build-dependent. It may affect crash information collection."
+      },
+      "note": {
+        "ja": "効果はビルド依存です。",
+        "en": "The effect is build-dependent."
+      },
+      "risk": "low",
+      "requiresReboot": true
+    }
+  ]
+}

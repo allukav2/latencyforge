@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latencyforge.invalid/tweak.schema.json",
+  "title": "LatencyForge tweak definitions (schema 1)",
+  "description": "Editor-assist schema. The authoritative validation (including the path allow/deny policy) is implemented in core/src/tweak.cpp and core/src/policy.cpp; a document that fails either is rejected as a whole.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tweaks"],
+  "properties": {
+    "schema": { "const": 1 },
+    "tweaks": { "type": "array", "items": { "$ref": "#/$defs/tweak" } }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ja", "en"],
+      "properties": {
+        "ja": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "en": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "tweak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "value", "type", "data", "title", "summary", "risk", "requiresReboot"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$", "maxLength": 100 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "path": {
+          "type": "string",
+          "pattern": "^HKLM\\\\|^HKCU\\\\",
+          "description": "Key path starting with HKLM\\ or HKCU\\. Must be inside the allow list and outside the built-in deny list (Defender, UAC, Windows Update, firewall, DeviceGuard/HVCI, ...)."
+        },
+        "value": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^\\\\/]+$" },
+        "type": { "enum": ["REG_DWORD", "REG_QWORD", "REG_SZ", "REG_EXPAND_SZ"] },
+        "data": { "type": ["integer", "string"], "minimum": 0 },
+        "title": { "$ref": "#/$defs/localized" },
+        "summary": { "$ref": "#/$defs/localized" },
+        "details": { "$ref": "#/$defs/localized" },
+        "note": { "$ref": "#/$defs/localized", "description": "Put 'effect is build-dependent' here when applicable." },
+        "risk": { "enum": ["low", "medium"] },
+        "requiresReboot": { "type": "boolean" },
+        "minBuild": { "type": "integer", "minimum": 17763 },
+        "maxBuild": { "type": "integer", "minimum": 17763 }
+      }
+    }
+  }
+}

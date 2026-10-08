@@ -1,0 +1,20 @@
+# ビルド成果物
+build/
+out/
+Testing/
+*.user
+*.log
+
+# Visual Studio
+.vs/
+
+# vcpkg の作業ディレクトリ (CI は ./vcpkg にチェックアウトする。ローカルは ~/vcpkg)
+/vcpkg/
+vcpkg_installed/
+.vcpkg-root
+
+# 実行時に作られるファイル (設定・状態・履歴・ログ)
+config/
+
+# 開発用スクリーンショット
+shots/

@@ -1,0 +1,100 @@
+{
+  "app": { "name": "LatencyForge" },
+  "nav": {
+    "home": "ホーム",
+    "affinity": "Affinity",
+    "usb": "USB",
+    "gpu": "GPU (NVIDIA)",
+    "kernel": "カーネル・タイマー",
+    "bench": "ベンチマーク",
+    "backup": "バックアップ・復元",
+    "log": "ログ",
+    "settings": "設定"
+  },
+  "common": {
+    "preview": "プレビュー",
+    "comingSoon": "このビルドではまだ利用できません(後のマイルストーンで実装予定)。",
+    "riskLow": "リスク: 低",
+    "riskMid": "リスク: 中",
+    "applied": "適用済み",
+    "notApplied": "未適用",
+    "revert": "元に戻す",
+    "nothingToRevert": "元に戻す対象がありません(未適用です)。",
+    "details": "詳細",
+    "current": "現在値 → 変更後:",
+    "restartRequired": "再起動が必要",
+    "buildDependent": "効果はWindowsのビルドに依存し、お使いの環境ではほとんど変化しない場合があります。"
+  },
+  "home": {
+    "title": "ホーム",
+    "subtitle": "システム概要とワンクリックプリセット。すべての変更は適用前に差分を確認でき、元に戻せます。",
+    "noticeTitle": "このビルドはシステムを変更しません",
+    "notice": "UI基盤(マイルストーン1)です。レジストリ操作・バックアップ・プリセットは後のマイルストーンで実装します。",
+    "sysTitle": "システム",
+    "os": "OS",
+    "logicalCpus": "論理プロセッサ数",
+    "renderer": "描画",
+    "rendererGpu": "Direct3D 11(ハードウェア)",
+    "rendererWarp": "Direct3D 11(WARP ソフトウェア描画)",
+    "sysMore": "CPUトポロジー(P/Eコア、CCD、L3共有)とGPUベンダーの検出は後のマイルストーンで追加します。",
+    "presets": "プリセット",
+    "presetSafe": "安全",
+    "presetSafeDesc": "最も保守的な調整のみ。初回はこちらを推奨します。",
+    "presetBalanced": "バランス",
+    "presetBalancedDesc": "競技プレイ向けの、リスクの低い調整をひととおり適用します。",
+    "presetMax": "最大",
+    "presetMaxDesc": "対応するすべての調整(リスク中を含む)。差分を十分に確認してください。",
+    "previewApply": "変更内容を確認…"
+  },
+  "kernel": {
+    "subtitle": "カーネル/タイマー関連のレジストリ値(再起動が必要)。",
+    "noticeTitle": "レイアウトのプレビュー",
+    "notice": "下のカードは最終的なtweakカードの見た目を示す動作しないサンプルです。レジストリには何も書き込みません。"
+  },
+  "sample": {
+    "title": "サンプルのtweakカード",
+    "desc": "このtweakが何を変更するかを1行で説明します。",
+    "detail": "展開部分には、レジストリのパス、書き込む値、期待される効果の理由、元に戻す方法を表示します。"
+  },
+  "placeholder": {
+    "affinity": {
+      "subtitle": "ゲームとバックグラウンドを適切なCPUコアへ自動で振り分けます。",
+      "desc": "実装予定(マイルストーン5): CPUトポロジー検出、ゲームプロファイル、自動適用・自動復元。注意: 一部のアンチチートはAffinity変更を警告・ブロックする可能性があります。単純なCPU構成では効果は小さくなります。"
+    },
+    "usb": {
+      "subtitle": "USBセレクティブサスペンドと関連する電源設定。",
+      "desc": "実装予定(マイルストーン6): 公式に文書化された電源設定APIのみを使用し、変更前の値をバックアップします。"
+    },
+    "gpu": {
+      "subtitle": "文書化されたNVIDIA設定。",
+      "desc": "実装予定(マイルストーン6): NVIDIA GPUが検出されない場合、このページは無効になります。"
+    },
+    "bench": {
+      "subtitle": "適用前後のタイマー分解能とスリープ精度を比較します。",
+      "desc": "実装予定(マイルストーン7): 結果はシステム依存で、JSONとして保存されます。"
+    },
+    "backup": {
+      "subtitle": "変更履歴、復元ポイント、全体の復元。",
+      "desc": "実装予定(マイルストーン2〜3): 個別復元、すべて復元、「すべて元に戻して終了」。"
+    },
+    "log": {
+      "subtitle": "フィルタ・コピー・エクスポート付きの操作ログ。",
+      "desc": "実装予定(マイルストーン2)。"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "外観、言語、リソース使用量。",
+    "language": "言語",
+    "languageAuto": "自動",
+    "languageJa": "日本語",
+    "languageEn": "English",
+    "noJpFont": "日本語のシステムフォントが見つからないため、日本語が正しく表示されない場合があります。",
+    "accent": "アクセントカラー",
+    "accentCustom": "カスタム色",
+    "reduceMotion": "省リソースモード(アニメーションを無効化)",
+    "reduceMotionDesc": "UIのアニメーションをすべて無効にします。操作したときだけ再描画されます。",
+    "about": "このアプリについて",
+    "aboutText": "LatencyForge 0.1.0 — MITライセンス。完全オフライン動作で、テレメトリ・自動更新・ネットワーク通信は一切ありません。"
+  }
+}

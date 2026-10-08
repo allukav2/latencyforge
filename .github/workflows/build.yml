@@ -1,0 +1,120 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:   # Actions タブから手動実行できる
+
+permissions:
+  contents: read
+
+env:
+  # vcpkg.json の builtin-baseline と一致させること (再現性のためピン留め)。
+  VCPKG_COMMIT: 2750401336fb7c95f6619657a46a7e798661341c
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # baseline 解決には vcpkg の git 履歴が必要なため浅いクローンは使わない。
+      - name: Check out vcpkg (pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ env.VCPKG_COMMIT }}
+          path: vcpkg
+          fetch-depth: 0
+
+      - name: Bootstrap vcpkg and set environment
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          $cache = Join-Path $env:RUNNER_TEMP "vcpkg-bincache"
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "VCPKG_DEFAULT_BINARY_CACHE=$cache" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-bincache
+          key: vcpkg-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-
+
+      - name: Configure
+        run: cmake --preset x64
+
+      - name: Build
+        run: cmake --build --preset x64-release
+
+      # --- テスト: ローカル PC では Smart App Control により実行できないため、ここがテストの正本。
+      # 単体テストと実機レジストリ統合テストは別ステップにして、どちらが落ちたか分かるようにする。
+      # 片方が失敗してももう片方は実行し (always())、最後にまとめてジョブを失敗させる。
+      - name: Prepare test result folder
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force test-results | Out-Null
+
+      - name: Unit tests (no real registry)
+        id: unit
+        shell: pwsh
+        run: |
+          $exe = "build/x64/tests/Release/lf_tests.exe"
+          & $exe "--gtest_filter=-RegistryIntegration.*" "--gtest_output=xml:test-results/unit.xml" 2>&1 |
+            Tee-Object -FilePath test-results/unit.log
+          exit $LASTEXITCODE
+
+      # HKCU\Software\LatencyForgeTest\<一意名> だけを触る。HKLM には触れない (テスト終了時にキーを削除)。
+      - name: Integration tests (HKCU test key only)
+        id: integration
+        if: ${{ always() && steps.unit.conclusion != 'skipped' }}
+        shell: pwsh
+        run: |
+          $exe = "build/x64/tests/Release/lf_tests.exe"
+          & $exe "--gtest_filter=RegistryIntegration.*" "--gtest_output=xml:test-results/integration.xml" 2>&1 |
+            Tee-Object -FilePath test-results/integration.log
+          exit $LASTEXITCODE
+
+      - name: Test summary
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          foreach ($f in "unit", "integration") {
+            $p = "test-results/$f.xml"
+            if (Test-Path $p) {
+              [xml]$x = Get-Content $p
+              $s = $x.testsuites
+              "$f : tests=$($s.tests) failures=$($s.failures) errors=$($s.errors) disabled=$($s.disabled)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+            } else {
+              "$f : NO RESULT FILE (the test executable did not run to completion)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+            }
+          }
+
+      # 成功/失敗にかかわらずアップロード: ログ (標準出力) と gtest の XML (失敗時の詳細)。
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          if-no-files-found: warn
+          path: test-results/
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          $dir = "build/x64/app/Release"
+          $hash = (Get-FileHash "$dir/latencyforge.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hash  latencyforge.exe" | Out-File "$dir/SHA256SUMS.txt" -Encoding ascii
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latencyforge-win-x64
+          if-no-files-found: error
+          path: |
+            build/x64/app/Release/latencyforge.exe
+            build/x64/app/Release/data
+            build/x64/app/Release/SHA256SUMS.txt

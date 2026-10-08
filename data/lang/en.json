@@ -1,0 +1,100 @@
+{
+  "app": { "name": "LatencyForge" },
+  "nav": {
+    "home": "Home",
+    "affinity": "Affinity",
+    "usb": "USB",
+    "gpu": "GPU (NVIDIA)",
+    "kernel": "Kernel / Timer",
+    "bench": "Benchmark",
+    "backup": "Backup / Restore",
+    "log": "Log",
+    "settings": "Settings"
+  },
+  "common": {
+    "preview": "PREVIEW",
+    "comingSoon": "Not available in this build yet (planned for a later milestone).",
+    "riskLow": "Risk: Low",
+    "riskMid": "Risk: Medium",
+    "applied": "Applied",
+    "notApplied": "Not applied",
+    "revert": "Revert",
+    "nothingToRevert": "Nothing to revert: this change is not applied.",
+    "details": "Details",
+    "current": "Current → after:",
+    "restartRequired": "Restart required",
+    "buildDependent": "The effect depends on the Windows build and may be negligible on your system."
+  },
+  "home": {
+    "title": "Home",
+    "subtitle": "System overview and one-click presets. Every change is previewed before it is applied and can be reverted.",
+    "noticeTitle": "This build makes no system changes",
+    "notice": "This is the UI foundation (milestone 1). Registry access, backups and presets are implemented in later milestones.",
+    "sysTitle": "System",
+    "os": "OS",
+    "logicalCpus": "Logical processors",
+    "renderer": "Renderer",
+    "rendererGpu": "Direct3D 11 (hardware)",
+    "rendererWarp": "Direct3D 11 (WARP software fallback)",
+    "sysMore": "CPU topology (P/E cores, CCD, L3 groups) and GPU vendor detection arrive in a later milestone.",
+    "presets": "Presets",
+    "presetSafe": "Safe",
+    "presetSafeDesc": "Only the most conservative tweaks. Recommended for the first run.",
+    "presetBalanced": "Balanced",
+    "presetBalancedDesc": "A reasonable set of low-risk tweaks for competitive play.",
+    "presetMax": "Maximum",
+    "presetMaxDesc": "Everything supported, including medium-risk tweaks. Review the diff carefully.",
+    "previewApply": "Preview changes…"
+  },
+  "kernel": {
+    "subtitle": "Kernel and timer registry values (restart required).",
+    "noticeTitle": "Layout preview",
+    "notice": "The card below is a non-functional sample that shows the final tweak card layout. Nothing is written to the registry."
+  },
+  "sample": {
+    "title": "Sample tweak card",
+    "desc": "One-line description of what this tweak changes.",
+    "detail": "The expanded section explains the registry path, the value being written, why it may help, and how to revert it."
+  },
+  "placeholder": {
+    "affinity": {
+      "subtitle": "Automatically place the game and background processes on suitable CPU cores.",
+      "desc": "Planned (milestone 5): CPU topology detection, game profiles, automatic apply/restore. Note: some anti-cheat software may warn about or block affinity changes. The benefit is small on simple CPU layouts."
+    },
+    "usb": {
+      "subtitle": "USB selective suspend and related power settings.",
+      "desc": "Planned (milestone 6): uses the documented Windows power-setting API only, with the previous values backed up."
+    },
+    "gpu": {
+      "subtitle": "Documented NVIDIA settings.",
+      "desc": "Planned (milestone 6): this page is disabled when no NVIDIA GPU is detected."
+    },
+    "bench": {
+      "subtitle": "Compare timer resolution and sleep accuracy before and after.",
+      "desc": "Planned (milestone 7): results are system-dependent and are saved as JSON."
+    },
+    "backup": {
+      "subtitle": "Change history, restore points and full revert.",
+      "desc": "Planned (milestones 2–3): per-tweak restore, restore all, and “revert everything and exit”."
+    },
+    "log": {
+      "subtitle": "Operation log with filter, copy and export.",
+      "desc": "Planned (milestone 2)."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Appearance, language and resource usage.",
+    "language": "Language",
+    "languageAuto": "Auto",
+    "languageJa": "日本語",
+    "languageEn": "English",
+    "noJpFont": "No Japanese system font was found, so Japanese text may not display correctly.",
+    "accent": "Accent color",
+    "accentCustom": "Custom color",
+    "reduceMotion": "Low-resource mode (disable animations)",
+    "reduceMotionDesc": "Turns off all UI animations. The window then redraws only when you interact with it.",
+    "about": "About",
+    "aboutText": "LatencyForge 0.1.0 — MIT License. Fully offline: no telemetry, no auto-update, no network access."
+  }
+}

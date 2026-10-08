@@ -1,0 +1,33 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "x64",
+      "displayName": "x64 (VS2022, vcpkg static)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "binaryDir": "${sourceDir}/build/x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "VCPKG_APPLOCAL_DEPS": "OFF"
+      }
+    },
+    {
+      "name": "x64-dev",
+      "displayName": "x64 dev (asInvoker manifest, for screenshots)",
+      "inherits": "x64",
+      "binaryDir": "${sourceDir}/build/x64-dev",
+      "cacheVariables": { "LF_REQUIRE_ADMIN": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "x64-release", "configurePreset": "x64", "configuration": "Release" },
+    { "name": "x64-debug", "configurePreset": "x64", "configuration": "Debug" },
+    { "name": "x64-dev-release", "configurePreset": "x64-dev", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "x64-release", "configurePreset": "x64", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "x64-dev-release", "configurePreset": "x64-dev", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

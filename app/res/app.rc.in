@@ -1,0 +1,33 @@
+#include <winres.h>
+
+1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/res/app.ico"
+1 24 "@CMAKE_CURRENT_BINARY_DIR@/app.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @LF_VERSION_COMMA@
+ PRODUCTVERSION @LF_VERSION_COMMA@
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041104B0"
+        BEGIN
+            VALUE "CompanyName", "LatencyForge contributors"
+            VALUE "FileDescription", "LatencyForge - low-latency tuning tool with full restore"
+            VALUE "FileVersion", "@LF_VERSION_DOT@"
+            VALUE "InternalName", "latencyforge"
+            VALUE "LegalCopyright", "MIT License"
+            VALUE "OriginalFilename", "latencyforge.exe"
+            VALUE "ProductName", "LatencyForge"
+            VALUE "ProductVersion", "@LF_VERSION_DOT@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0411, 1200
+    END
+END
