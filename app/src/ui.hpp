@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "backend.hpp"
+#include "lf/affinity_plan.hpp"
 #include "lf/engine.hpp"
 #include "lf/i18n.hpp"
 #include "lf/settings.hpp"
@@ -90,10 +91,29 @@ private:
     std::string reasonText(const lf::FeatureStatus& status) const;
     std::string archName(lf::Arch arch) const;
     void drawSystemCard();
-    void drawTopologyMap();
+    void drawTopologyMap(const lf::AffinityPlan* plan = nullptr);  // plan を渡すと、ゲーム用/その他のコアを色分けする
     void drawFeatureBanner(Page page);
     void drawCompatModal();
 
+    // --- Affinity 自動最適化 (ui_affinity.cpp)
+    void pageAffinity();
+    void drawAntiCheatCard();
+    void drawAffinityStatusCard();
+    void drawAffinityProfiles();
+    void drawProcessPicker();
+    void commitAffinityConfig(const lf::AffinityConfig& cfg);
+    bool addAffinityProfile(const std::string& exeName);
+    std::string planSummary(const lf::AffinityPlan& plan) const;
+
+public:
+    // メインループ用。ポーリング間隔 (ms)。0 = ポーリング不要 (何も動かさない)。
+    int pollIntervalMs() const;
+    // タイマーごとに呼ぶ。表示を更新すべきなら true。
+    bool pollTimer();
+    // 終了時 (WM_CLOSE / WM_ENDSESSION / 終了処理) に呼ぶ。変更したアフィニティ/優先度をすべて元に戻す。冪等。
+    void shutdown();
+
+private:
     // --- カーネル/タイマー (ui_kernel.cpp)
     struct Row {
         const lf::TweakDef* def = nullptr;
@@ -194,6 +214,14 @@ private:
     std::string m_restoreDetail;
     bool m_recoveryDeferred = false;
     bool m_stateErrorDismissed = false;
+
+    // Affinity ページ
+    bool m_pickerOpen = false;
+    std::vector<lf::ProcessState> m_pickerList;
+    int m_pickerSel = -1;
+    char m_pickerFilter[64] = {};
+    char m_manualExe[72] = {};
+    std::string m_addErrorKey;  // 追加に失敗した理由 (lang キー)
 
     // 開発用 (デモ)
     std::string m_demoShow;

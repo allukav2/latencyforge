@@ -80,7 +80,8 @@
     "io": "A file could not be read or written.",
     "notFound": "The requested item was not found.",
     "notLoaded": "The state file has not been loaded.",
-    "restorePointFailed": "The restore point could not be created. System Protection may be turned off."
+    "restorePointFailed": "The restore point could not be created. System Protection may be turned off.",
+    "processChanged": "The process had been replaced by another one, so nothing was changed."
   },
   "home": {
     "title": "Home",
@@ -157,6 +158,79 @@
     },
     "note": {
       "affinitySmall": "This CPU layout is simple (no hybrid cores, a single L3 group), so affinity changes are likely to have only a small effect."
+    }
+  },
+  "affinity": {
+    "subtitle": "Automatically place the game on the best cores and other apps on a different set of cores.",
+    "antiCheatTitle": "Note about anti-cheat software",
+    "antiCheatBody": "Some anti-cheat software (for example Vanguard, EasyAntiCheat (EAC) or BattlEye) may warn about or block changes to a process's affinity. This tool never touches protected or system processes and skips (and logs) any process it cannot open, but it cannot guarantee compatibility with anti-cheat software. Check the rules of the game before using it in online matches, and use it at your own risk.",
+    "enable": "Apply automatically when a game starts",
+    "enableDesc": "When on, the affinity is optimized only while a registered game is running and is restored when it exits. While off, nothing runs at all.",
+    "state": {
+      "disabled": "Off",
+      "idle": "Waiting",
+      "idleDesc": "Waiting for a registered game to start. A lightweight check runs every 2 seconds; the settings are applied automatically at launch and restored at exit.",
+      "active": "Active",
+      "activeFmt": "{0} (PID {1})",
+      "noEffect": "No change",
+      "blocked": "Skipped"
+    },
+    "managedFmt": "Modified processes: {0} (including the game). They are restored when the game exits and when this app exits.",
+    "planTitle": "What will be applied (preview)",
+    "plan": {
+      "perf": "Game → {0} P-core(s) ({1} threads) / other apps → {2} E-core(s) ({3} threads)",
+      "l3": "Game → {0} cores sharing the L3 cache ({1} threads) / other apps → the remaining {2} cores ({3} threads)",
+      "reserve": "Core 0 is kept free for other apps ({0} core); the game uses the remaining {1} cores",
+      "noneSimple": "Nothing is changed on this CPU layout (no hybrid cores and a single L3 group, so the benefit would be small).",
+      "noneTooFew": "This method is not available because the CPU has too few cores.",
+      "noneNotApplicable": "The selected method does not apply to this CPU, so nothing is changed."
+    },
+    "legendGame": "Game",
+    "legendBackground": "Other apps",
+    "restoreNow": "Restore now",
+    "nothingToRestore": "No process is currently modified.",
+    "demoStart": "Demo: start the simulated game",
+    "demoStop": "Demo: stop the simulated game",
+    "profiles": "Registered games",
+    "noProfiles": "No game is registered yet. Start the game first, then use \"Pick from running processes\".",
+    "strategyLabel": "Method",
+    "strategy": {
+      "auto": "Automatic (chosen from the CPU layout)",
+      "performance": "P-cores only (hybrid CPUs)",
+      "largest": "CCD with the larger L3 cache (multi-CCD)",
+      "reserve": "Keep core 0 free for other apps"
+    },
+    "priority": {
+      "unchanged": "Priority: unchanged",
+      "aboveNormal": "Priority: above normal",
+      "high": "Priority: high"
+    },
+    "priorityNote": "Raising the priority can make other apps respond more slowly. It is restored when the game exits.",
+    "smtSiblings": "Let the game use SMT sibling threads too",
+    "moveBackground": "Move other apps onto the remaining cores",
+    "remove": "Remove",
+    "addRunning": "Pick from running processes…",
+    "addManual": "Or type the executable name (for example game.exe)",
+    "exeHint": "game.exe",
+    "add": "Add",
+    "pickerTitle": "Pick a running process",
+    "pickerHint": "Protected processes, system processes, other users' processes and anti-cheat services are not listed.",
+    "pickerFilter": "Filter",
+    "pickerEmpty": "No matching process.",
+    "pickerNone": "Select a process first.",
+    "err": {
+      "invalid": "The executable name is not valid (use a bare file name ending in .exe, without a path).",
+      "protected": "This process is protected and cannot be registered.",
+      "duplicate": "This executable is already registered."
+    },
+    "note": {
+      "blockedOpen": "The process could not be opened (it may be protected, guarded by an anti-cheat, or you lack permission). Nothing was changed.",
+      "blockedProtected": "This is a protected or system process. Nothing was changed.",
+      "blockedGroup": "The process runs in a different processor group. Nothing was changed.",
+      "blockedOverlap": "The planned cores do not overlap the process's current affinity. Nothing was changed.",
+      "blockedJournal": "The restore record could not be saved, so nothing was changed.",
+      "noEffectSimple": "The benefit would be small on this CPU layout, so nothing is changed.",
+      "noEffectOther": "Nothing is changed for this configuration."
     }
   },
   "kernel": {

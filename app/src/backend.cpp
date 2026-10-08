@@ -2,6 +2,7 @@
 
 #include "lf/state.hpp"
 #include "lf/system.hpp"
+#include "lf/win_process_api.hpp"
 #include "lf/win_registry.hpp"
 
 namespace lfapp {
@@ -14,11 +15,14 @@ bool Backend::init(const BackendOptions& opt) {
 
     // デモ: 状態/履歴/ログは別フォルダ。実機の状態ファイルとは混ざらない。
     const fs::path dataDir = opt.demo ? opt.configDir / "demo" : opt.configDir;
+    m_dataDir = dataDir;
     if (opt.demo) {
         // デモは毎回まっさらな状態から始める (メモリ上のレジストリと、前回のデモの状態ファイルを食い違わせない)。
         std::error_code ec;
         fs::remove(dataDir / "state.json", ec);
         fs::remove(dataDir / "history.jsonl", ec);
+        fs::remove(dataDir / "affinity_state.json", ec);
+        fs::remove(dataDir / "affinity.json", ec);
     }
     log.setFile(dataDir / "latencyforge.log");
     log.info("app", std::string("starting; mode=") + (demo ? "DEMO (in-memory registry)" : "real registry") +
@@ -82,6 +86,86 @@ bool Backend::init(const BackendOptions& opt) {
     engine = std::make_unique<lf::Engine>(*registry, policy, log, cfg);
     if (auto r = engine->load(); !r.ok()) stateError = r.error();
     return true;
+}
+
+// ---------------------------------------------------------------- Affinity
+
+void Backend::initAffinity(const lf::CpuTopology& topology, bool featureAvailable, const std::string& demoShow) {
+    if (demo) {
+        auto fake = std::make_unique<lf::FakeProcessApi>();
+        m_fake = fake.get();
+        // 論理プロセッサ全体のマスク (グループ 0)
+        m_demoFullMask = 0;
+        for (const auto& c : topology.cores)
+            if (c.group == 0) m_demoFullMask |= c.mask;
+        if (m_demoFullMask == 0) m_demoFullMask = 0xFFFF;
+
+        lf::FakeProcessApi::Options o;
+        o.mask = m_demoFullMask;
+        for (const char* n : {"chrome.exe", "chrome.exe", "Discord.exe", "obs64.exe", "Spotify.exe", "steam.exe", "Code.exe"}) fake->add(n, o);
+        fake->add("explorer.exe", o);
+        fake->add("audiodg.exe", o);
+        lf::FakeProcessApi::Options other = o;
+        other.sameUser = false;
+        fake->add("svchost.exe", other);
+        lf::FakeProcessApi::Options prot = o;
+        prot.isProtected = true;
+        fake->add("MsMpEng.exe", prot);
+        lf::FakeProcessApi::Options guarded = o;
+        guarded.denyOpen = true;
+        fake->add("vgc.exe", guarded);
+        procApi = std::move(fake);
+    } else {
+        procApi = std::make_unique<lf::WinProcessApi>();
+    }
+
+    affinity = std::make_unique<lf::AffinityManager>(*procApi, log, m_dataDir / "affinity_state.json");
+    affinity->setTopology(topology);
+
+    lf::AffinityConfig cfg;
+    auto loaded = lf::loadAffinityConfig(m_dataDir / "affinity.json");
+    if (loaded.ok())
+        cfg = loaded.value();
+    else {
+        affinityConfigError = loaded.error();  // 既定値で動作。壊れたファイルは、ユーザーが変更するまで上書きしない
+        log.error("affinity", "affinity.json is invalid; using defaults", loaded.error().detail);
+    }
+    if (!featureAvailable) cfg.enabled = false;
+    if (demo && demoShow.rfind("affinity-", 0) == 0) {  // 開発用: スクリーンショット
+        lf::AffinityProfile p;
+        p.id = "p1";
+        p.name = "ExampleGame.exe";
+        p.exeNames = {"examplegame.exe"};
+        cfg.profiles = {p};
+        cfg.enabled = featureAvailable;
+    }
+    affinity->setConfig(cfg);
+    affinity->recoverFromJournal();  // 前回の異常終了でアフィニティが変更されたままのプロセスを元に戻す
+    if (demo && demoShow == "affinity-active") {
+        demoToggleGame();
+        affinity->tick();
+    }
+}
+
+void Backend::saveAffinityConfig() {
+    if (!affinity) return;
+    auto r = lf::saveAffinityConfig(m_dataDir / "affinity.json", affinity->config());
+    if (!r.ok()) log.error("affinity", "could not save affinity.json", r.error().detail);
+    else affinityConfigError.reset();
+}
+
+bool Backend::demoGameRunning() const { return m_fake && m_demoGamePid != 0 && m_fake->find(m_demoGamePid) != nullptr; }
+
+void Backend::demoToggleGame() {
+    if (!m_fake) return;
+    if (demoGameRunning()) {
+        m_fake->kill(m_demoGamePid);
+        m_demoGamePid = 0;
+    } else {
+        lf::FakeProcessApi::Options o;
+        o.mask = m_demoFullMask;
+        m_demoGamePid = m_fake->add("ExampleGame.exe", o);
+    }
 }
 
 std::vector<const lf::TweakDef*> Backend::tweaksIn(const std::string& category) const {

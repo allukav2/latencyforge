@@ -8,6 +8,10 @@ add_executable(lf_tests
   util_test.cpp
   preset_test.cpp
   sysinfo_test.cpp
+  affinity_plan_test.cpp
+  affinity_profile_test.cpp
+  affinity_manager_test.cpp
+  process_api_test.cpp
   engine_test.cpp
   registry_integration_test.cpp
 )

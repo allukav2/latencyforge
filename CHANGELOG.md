@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 ### Added
+- M5: automatic Affinity optimization. A pure planner (`planAffinity`) picks the best cores from the detected topology — P-cores
+  on hybrid CPUs, the larger-L3 CCD (merging CCX groups up to 6 cores) on multi-CCD AMD, nothing on simple CPUs — within a single
+  processor group. Users register games (or pick from running processes); profiles are stored in `affinity.json`.
+  A lightweight 2-second poll (a timer that is stopped while the feature is off) applies the plan when a registered game starts and
+  restores everything when it exits and when the app exits; a persisted journal restores leftovers after a crash.
+- M5 safety: processes are opened only with `PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION`, in one place; protected,
+  critical, other-user, other-session, Windows-folder, audio and well-known anti-cheat processes are never touched; PID reuse is
+  detected by creation time; affinity is never widened; a process that cannot be opened is skipped and logged. Tests scan the source
+  for forbidden APIs. README and `docs/anticheat.md` document the anti-cheat caveat.
+- M5: OS access is behind `IProcessApi` (`WinProcessApi` / `FakeProcessApi`); the planner and manager are tested on all 16 sample systems.
 - M4: system detection at startup — OS (build, edition, Server/LTSC, native architecture), CPU topology (physical/logical cores,
   P/E cores, SMT, L3 sharing groups for multi-CCD, processor groups), GPU vendor via DXGI vendor ID. Shown in a system card with a
   core-layout map on Home.

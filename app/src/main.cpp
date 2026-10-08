@@ -26,6 +26,8 @@ namespace {
 constexpr int kMinWidth = 920;   // 論理ピクセル
 constexpr int kMinHeight = 600;
 
+constexpr UINT_PTR kPollTimerId = 1;
+
 struct App {
     HWND hwnd = nullptr;
     lfapp::Dx11 dx;
@@ -34,6 +36,16 @@ struct App {
     bool minimized = false;
     bool mouseInside = false;
     bool active = true;
+    int timerMs = 0;  // Affinity 用ポーリングタイマー (0 = 停止)
+
+    // 必要なときだけタイマーを動かす (無効/ゲーム未登録なら止める = アイドル時の負荷ゼロ)。
+    void syncTimer() {
+        const int wanted = ui.pollIntervalMs();
+        if (wanted == timerMs) return;
+        if (timerMs) KillTimer(hwnd, kPollTimerId);
+        if (wanted) SetTimer(hwnd, kPollTimerId, static_cast<UINT>(wanted), nullptr);
+        timerMs = wanted;
+    }
 
     void render() {
         ImGui_ImplDX11_NewFrame();
@@ -96,7 +108,21 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             break;
         case WM_ERASEBKGND:
             return 1;
+        case WM_TIMER:
+            if (wp == kPollTimerId && app) {
+                if (app->ui.pollTimer()) app->framesLeft = std::max(app->framesLeft, 3);  // 状態が変わったときだけ再描画
+                app->syncTimer();
+            }
+            return 0;
+        case WM_CLOSE:
+            // ウィンドウを閉じる前に、変更したアフィニティ/優先度を必ず元に戻す (ログオフ/シャットダウンは WM_ENDSESSION)。
+            if (app) app->ui.shutdown();
+            break;
+        case WM_ENDSESSION:
+            if (app && wp) app->ui.shutdown();
+            break;
         case WM_DESTROY:
+            if (app) app->ui.shutdown();
             PostQuitMessage(0);
             return 0;
         default:
@@ -255,8 +281,10 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             if (msg.message == WM_QUIT) goto done;
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
-            app.framesLeft = std::max(app.framesLeft, 3);
+            // ポーリングのタイマー (WM_TIMER) だけでは再描画しない。状態が変わったときだけ wndProc が要求する。
+            if (msg.message != WM_TIMER) app.framesLeft = std::max(app.framesLeft, 3);
         }
+        app.syncTimer();
         if (app.minimized) {
             WaitMessage();
             continue;
@@ -271,6 +299,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         }
     }
 done:
+    app.ui.shutdown();  // 念のため (冪等): どの終了経路でも、変更したプロセスを元に戻す
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

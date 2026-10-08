@@ -27,6 +27,7 @@ enum class ErrorCode {
     NotFound,
     NotLoaded,
     RestorePointFailed,
+    ProcessChanged,  // PID が別のプロセスに再利用された (作成時刻が一致しない)
 };
 
 const char* errorKey(ErrorCode code);  // 例: "error.policyDenied"

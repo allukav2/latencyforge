@@ -451,6 +451,8 @@ void Ui::drawModals() {
         drawPreviewModal();
     else if (m_modal == Modal::Result)
         drawResultModal();
+    else if (m_pickerOpen)
+        drawProcessPicker();
     else if (m_be->engine->pending() && !m_recoveryDeferred)
         drawRecoveryModal();
     else if (m_be->stateError && !m_stateErrorDismissed)

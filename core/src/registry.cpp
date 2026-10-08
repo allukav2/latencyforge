@@ -25,6 +25,7 @@ const char* errorKey(ErrorCode c) {
         case ErrorCode::NotFound: return "error.notFound";
         case ErrorCode::NotLoaded: return "error.notLoaded";
         case ErrorCode::RestorePointFailed: return "error.restorePointFailed";
+        case ErrorCode::ProcessChanged: return "error.processChanged";
     }
     return "error.io";
 }

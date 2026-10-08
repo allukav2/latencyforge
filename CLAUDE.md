@@ -88,7 +88,18 @@ ImGui は 1.92 以降(動的フォント API `PushFont(font, size)` を使用)�
   プリセット説明には「効果はビルド依存」を明記し、「最大＝最速」と誤解させる表現は使わない(テストで検証)。ウィザードが提案するのは「安全」。
   M3 は CI 緑(単体 107 + HKCU 統合 7)。
 - M4 実装済み(システム検出: `core/sysinfo`・`win_probe`・`sample_systems`、ホームのシステムカード、機能のグレーアウト、動作保証外の警告)。
-  検出は `ISystemProbe` で OS API 層と分離。`--demo --sim <名前>` でサンプル構成を表示できる。新テストは CI 結果待ち。
+  検出は `ISystemProbe` で OS API 層と分離。`--demo --sim <名前>` でサンプル構成を表示できる。M4 は CI 緑(単体 143 + HKCU 統合 7)。
+- M5 実装済み(Affinity 自動最適化: `core/affinity_*`・`process_api`・`win_process_api`・`fake_process_api`、`app/ui_affinity.cpp`)。
+  プロセスは `IProcessApi` 越しに操作し、デモ(`--demo`)は `FakeProcessApi` で実機のプロセスに一切触れない。
+  `--show affinity-active|affinity-picker`。プロセスを開くのは `WinProcessApi::openMinimal` の 1 か所、権限は SET_INFORMATION|QUERY_LIMITED のみ
+  (ソース検査テストあり)。開発中に実機の他プロセスへアフィニティを書き込む操作もしない(HKLM と同様、ユーザーの承認が要る)。
+  新テストは CI 結果待ち。
+
+## Affinity の不変条件(変更時は必ず守る)
+- 触る前に変更前の値をジャーナルへ保存(保存できなければ変更しない)。作成時刻で PID 再利用を照合。既存アフィニティを広げない。
+- 保護/重要/他ユーザー/他セッション/Windows フォルダ/名前除外(audiodg・アンチチート等)には触れない。開けない・失敗はスキップしてログ。
+- ゲーム終了時・アプリ終了時(WM_CLOSE/WM_ENDSESSION/終了処理)・無効化時に必ず復元。異常終了後は起動時にジャーナルから復元。
+- 既定はオフ。オフの間はタイマーも止める(アイドル負荷ゼロ)。README と UI にアンチチートの注意を常に明記。
 
 ## 配布
 - ポータブル(単一 exe + 設定フォルダ)。設定は exe 隣 `data/`、書込不可なら `%APPDATA%\LatencyForge`。

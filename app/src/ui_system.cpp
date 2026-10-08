@@ -191,8 +191,10 @@ void Ui::drawSystemCard() {
 }
 
 // コアを L3 グループごとにまとめて並べる。P=アクセント色 / E=緑 / 通常=薄いアクセント。SMT のコアには中央に点を描く。
-void Ui::drawTopologyMap() {
+void Ui::drawTopologyMap(const lf::AffinityPlan* plan) {
     const lf::CpuTopology& cpu = m_sys.cpu;
+    const bool overlay = plan && plan->effective();
+    auto inList = [](const std::vector<int>& v, int i) { return std::find(v.begin(), v.end(), i) != v.end(); };
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float cell = S(16), gap = S(4);
     const float avail = ImGui::GetContentRegionAvail().x;
@@ -215,7 +217,12 @@ void Ui::drawTopologyMap() {
         for (int i = 0; i < n; ++i) {
             const lf::CoreInfo& c = cpu.cores[static_cast<size_t>(coreIdx[static_cast<size_t>(i)])];
             const ImVec2 a(origin.x + (i % cols) * (cell + gap), origin.y + (i / cols) * (cell + gap));
-            const ImVec4 col = coreColor(c.kind);
+            ImVec4 col = coreColor(c.kind);
+            if (overlay) {  // 計画の色分け: ゲーム=アクセント / その他=オレンジ / どちらにも割り当てない=暗い
+                col = inList(plan->gameCores, c.index) ? m_pal.accent
+                      : inList(plan->backgroundCores, c.index) ? m_pal.warn
+                                                               : mix(m_pal.border, m_pal.textDim, 0.3f);
+            }
             dl->AddRectFilled(a, a + ImVec2(cell, cell), u32(withAlpha(col, 0.85f)), S(4));
             if (c.logical > 1) dl->AddCircleFilled(a + ImVec2(cell, cell) * 0.5f, S(2.2f), u32(ImVec4(1, 1, 1, 0.9f)), 12);
         }
@@ -245,7 +252,10 @@ void Ui::drawTopologyMap() {
         dl->AddText(ImVec2(x + S(18), p.y), u32(m_pal.textDim), text);
         x += S(18) + ts.x + S(18);
     };
-    if (cpu.hybrid) {
+    if (overlay) {
+        legend(m_pal.accent, t("affinity.legendGame"));
+        legend(m_pal.warn, t("affinity.legendBackground"));
+    } else if (cpu.hybrid) {
         legend(m_pal.accent, t("sys.legendP"));
         legend(m_pal.ok, t("sys.legendE"));
     } else {

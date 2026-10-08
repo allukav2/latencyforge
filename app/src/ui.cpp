@@ -117,6 +117,7 @@ bool Ui::init(const UiInit& in, float dpiScale) {
     bo.demo = m_demo;
     bo.seedDemoPending = m_demo && m_demoShow == "recovery";
     m_be->init(bo);
+    m_be->initAffinity(m_sys.cpu, m_feat[static_cast<size_t>(Page::Affinity)].available, m_demoShow);
     m_be->log.info("system", m_sysSummary);
     for (lf::CompatIssue i : m_compat.issues) m_be->log.warn("system", std::string("outside the supported range: ") + lf::compatIssueKey(i));
     return true;
@@ -477,6 +478,7 @@ void Ui::drawContent() {
     switch (m_page) {
         case Page::Home: pageHome(); break;
         case Page::Kernel: pageKernel(); break;
+        case Page::Affinity: pageAffinity(); break;
         case Page::Settings: pageSettings(); break;
         default: pagePlaceholder(m_page); break;
     }
