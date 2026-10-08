@@ -39,6 +39,7 @@ struct Env {
     int tick = 0;
     std::unique_ptr<lf::Engine> eng;
     uint32_t build = 26100;
+    int hour = 0;  // テスト内で時刻を進めるため (再起動待ちの判定用)
 
     explicit Env(const std::string& name) {
         dir = fs::temp_directory_path() / "lf_tests_engine" / name;
@@ -56,7 +57,11 @@ struct Env {
 
     std::unique_ptr<lf::Engine> makeEngine() {
         lf::EngineConfig cfg{stateFile(), historyFile(), build};
-        return std::make_unique<lf::Engine>(reg, policy, log, cfg, [this] { return "2026-01-01T00:00:" + std::to_string(++tick); });
+        return std::make_unique<lf::Engine>(reg, policy, log, cfg, [this] {
+            char buf[40];
+            std::snprintf(buf, sizeof buf, "2026-01-01T%02d:00:%02d", hour, ++tick % 60);
+            return std::string(buf);
+        });
     }
     // 「再起動」: 同じファイルから新しい Engine を作る。
     void restart() {
@@ -506,4 +511,118 @@ TEST(History, SkipsDamagedLines) {
     { std::ofstream(dir / "h.jsonl", std::ios::app) << "garbage line\n"; }
     ASSERT_TRUE(h.append({"t2", "revert", "x.y", "p", RegValue::dword(1), std::nullopt, "ok", ""}).ok());
     EXPECT_EQ(h.readAll().size(), 2u);
+}
+
+// ---- UI 用の状態判定 (status) ------------------------------------------------------------------------
+
+TEST(EngineStatus, ReportsEachState) {
+    ENV("status");
+    auto t = makeTweak("kernel.a", "A", RegValue::dword(0));
+
+    auto s = env.eng->status(t);  // 値が存在しない
+    EXPECT_EQ(s.state, lf::TweakState::NotApplied);
+    EXPECT_FALSE(s.current.has_value());
+    EXPECT_FALSE(s.tracked);
+
+    env.reg.set(t.target, RegValue::dword(5));
+    s = env.eng->status(t);
+    EXPECT_EQ(s.state, lf::TweakState::NotApplied);
+    EXPECT_EQ(s.current, std::optional<RegValue>(RegValue::dword(5)));
+
+    ASSERT_TRUE(env.eng->apply({&t}).ok);
+    s = env.eng->status(t);
+    EXPECT_EQ(s.state, lf::TweakState::Applied);
+    EXPECT_TRUE(s.tracked);
+
+    env.reg.set(t.target, RegValue::dword(9));  // 外部で変更
+    s = env.eng->status(t);
+    EXPECT_EQ(s.state, lf::TweakState::Drifted);
+    EXPECT_TRUE(s.tracked) << "a backup still exists, so it can be reverted";
+
+    ASSERT_TRUE(env.eng->revert({"kernel.a"}).ok);
+    EXPECT_EQ(env.eng->status(t).state, lf::TweakState::NotApplied);
+}
+
+TEST(EngineStatus, ValueAlreadyAtTargetIsNotOursToRevert) {
+    ENV("status_already");
+    auto t = makeTweak("kernel.a", "A", RegValue::dword(0));
+    env.reg.set(t.target, RegValue::dword(0));
+    auto s = env.eng->status(t);
+    EXPECT_EQ(s.state, lf::TweakState::AlreadyAtTarget);
+    EXPECT_FALSE(s.tracked);
+}
+
+TEST(EngineStatus, UnsupportedBuildAndBlockedStates) {
+    ENV("status_blocked");
+    env.build = 17763;
+    env.restart();
+    auto old = makeTweak("kernel.old", "Old", RegValue::dword(0));
+    old.minBuild = 19041;
+    auto s = env.eng->status(old);
+    EXPECT_EQ(s.state, lf::TweakState::Unsupported);
+    ASSERT_TRUE(s.error.has_value());
+    EXPECT_EQ(s.error->code, lf::ErrorCode::UnsupportedBuild);
+
+    lf::TweakDef evil = makeTweak("kernel.evil", "X", RegValue::dword(1));
+    evil.target = lf::parseRegPath("HKLM\\SOFTWARE\\Microsoft\\Windows Defender", "DisableAntiSpyware").value();
+    s = env.eng->status(evil);
+    EXPECT_EQ(s.state, lf::TweakState::Blocked);
+    EXPECT_EQ(s.error->code, lf::ErrorCode::PolicyDenied);
+
+    auto bin = makeTweak("kernel.bin", "Bin", RegValue::dword(1));
+    env.reg.unsupportedRead.insert(MockRegistry::key(bin.target));
+    s = env.eng->status(bin);
+    EXPECT_EQ(s.state, lf::TweakState::Blocked);
+    EXPECT_EQ(s.error->code, lf::ErrorCode::UnsupportedValueType);
+}
+
+TEST(EngineStatus, NeverWrites) {
+    ENV("status_readonly");
+    auto t = makeTweak("kernel.a", "A", RegValue::dword(0));
+    for (int i = 0; i < 3; ++i) (void)env.eng->status(t);
+    EXPECT_EQ(env.reg.writes + env.reg.deletes, 0);
+    EXPECT_FALSE(fs::exists(env.stateFile()));
+}
+
+// ---- 再起動が必要な表示 --------------------------------------------------------------------------------
+
+TEST(EngineReboot, PendingUntilTheNextBootThenClears) {
+    ENV("reboot");
+    const auto bootBefore = *lf::parseIso8601Utc("2026-01-01T00:00:00Z");
+    const auto bootAfter = *lf::parseIso8601Utc("2026-01-01T01:00:00Z");
+    EXPECT_FALSE(env.eng->rebootPending(bootBefore)) << "nothing changed yet";
+
+    auto t = makeTweak("kernel.a", "A", RegValue::dword(0), /*reboot=*/true);
+    ASSERT_TRUE(env.eng->apply({&t}).ok);
+    EXPECT_TRUE(env.eng->rebootPending(bootBefore));
+    EXPECT_FALSE(env.eng->rebootPending(bootAfter)) << "the machine restarted after the change";
+
+    env.restart();  // 永続化されている
+    EXPECT_TRUE(env.eng->rebootPending(bootBefore));
+
+    env.hour = 2;  // 再起動後 (01:00) にもう一度変更 → また再起動待ち
+    ASSERT_TRUE(env.eng->revert({"kernel.a"}).ok);
+    EXPECT_TRUE(env.eng->rebootPending(bootAfter)) << "reverting also needs a restart to take effect";
+}
+
+TEST(EngineReboot, ChangesThatNeedNoRestartDoNotSetTheMark) {
+    ENV("reboot_none");
+    auto t = makeTweak("kernel.a", "A", RegValue::dword(0), /*reboot=*/false);
+    ASSERT_TRUE(env.eng->apply({&t}).ok);
+    EXPECT_FALSE(env.eng->rebootPending(*lf::parseIso8601Utc("2025-12-31T00:00:00Z")));
+}
+
+TEST(EngineReboot, DryRunAndRollbackDoNotSetTheMark) {
+    ENV("reboot_dry");
+    auto a = makeTweak("kernel.a", "A", RegValue::dword(0));
+    auto b = makeTweak("kernel.b", "B", RegValue::dword(0));
+    const auto longAgo = *lf::parseIso8601Utc("2025-12-31T00:00:00Z");
+    (void)env.eng->apply({&a}, {.dryRun = true});
+    EXPECT_FALSE(env.eng->rebootPending(longAgo));
+    env.reg.hook = [](const char* op, const lf::RegPath& p) -> std::optional<lf::Error> {
+        if (std::string(op) == "write" && p.valueName == "B") return lf::Error{lf::ErrorCode::RegistryWrite, "x", 5};
+        return std::nullopt;
+    };
+    EXPECT_FALSE(env.eng->apply({&a, &b}).ok);
+    EXPECT_FALSE(env.eng->rebootPending(longAgo)) << "a rolled-back transaction changed nothing";
 }

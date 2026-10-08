@@ -28,13 +28,20 @@ bool Settings::loadFile(const std::filesystem::path& path) {
         }
     }
     if (auto it = doc.find("reduceMotion"); it != doc.end() && it->is_boolean()) reduceMotion = it->get<bool>();
+    if (auto it = doc.find("acceptedDisclaimer"); it != doc.end() && it->is_number_integer()) {
+        const auto v = it->get<long long>();
+        if (v >= 0 && v < 1000000) acceptedDisclaimer = static_cast<int>(v);
+    }
     return true;
 }
 
 bool Settings::saveFile(const std::filesystem::path& path) const {
     char hex[8];
     std::snprintf(hex, sizeof hex, "#%06X", accentRgb & 0xFFFFFFu);
-    json doc = {{"language", language}, {"accent", hex}, {"reduceMotion", reduceMotion}};
+    json doc = {{"language", language},
+                {"accent", hex},
+                {"reduceMotion", reduceMotion},
+                {"acceptedDisclaimer", acceptedDisclaimer}};
 
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);

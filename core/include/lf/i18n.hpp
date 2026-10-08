@@ -4,6 +4,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace lf {
 
@@ -27,6 +28,7 @@ public:
 
     bool has(std::string_view key) const { return m_map.find(key) != m_map.end(); }
     size_t size() const { return m_map.size(); }
+    std::vector<std::string> keys() const;  // 整列済み (翻訳キーの過不足テスト用)
 
 private:
     std::unordered_map<std::string, std::string, StringHash, std::equal_to<>> m_map;

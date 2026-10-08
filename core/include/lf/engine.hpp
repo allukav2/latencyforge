@@ -50,6 +50,23 @@ struct Report {
     bool stateSaveFailed = false;     // レジストリは変更済みだが状態ファイルの確定書き込みに失敗
 };
 
+// UI 表示用: tweak 1 件の現在の状態 (レジストリを読むだけで、何も書かない)。
+enum class TweakState {
+    NotApplied,       // 目標値ではなく、こちらが変更した記録も無い
+    Applied,          // こちらが適用し、現在も適用時の値のまま
+    Drifted,          // こちらが適用した記録はあるが、現在値は適用時の値と違う (外部で変更された)
+    AlreadyAtTarget,  // 元から目標値 (こちらの変更ではないので、復元する対象も無い)
+    Unsupported,      // Windows ビルドが範囲外
+    Blocked,          // ポリシー拒否 / 読み取り不能 / バックアップ不能な型
+};
+
+struct TweakStatus {
+    TweakState state = TweakState::NotApplied;
+    std::optional<RegValue> current;  // nullopt = 存在しない (Blocked / Unsupported では意味なし)
+    bool tracked = false;             // 復元用バックアップがある
+    std::optional<Error> error;       // Unsupported / Blocked の理由
+};
+
 struct EngineConfig {
     std::filesystem::path stateFile;
     std::filesystem::path historyFile;
@@ -85,6 +102,11 @@ public:
     // 異常終了などで未完了のトランザクションがあるか / それを適用前の状態へ戻す。
     const std::optional<PendingTx>& pending() const { return m_state.pending; }
     Report resolvePending();
+
+    TweakStatus status(const TweakDef& tweak) const;
+
+    // 再起動しないと反映されない変更を、bootTime (最後の起動時刻) より後に確定したか。
+    bool rebootPending(std::chrono::system_clock::time_point bootTime) const;
 
     bool isApplied(const std::string& id) const { return m_state.applied.count(id) != 0; }
     const std::map<std::string, AppliedRecord>& applied() const { return m_state.applied; }

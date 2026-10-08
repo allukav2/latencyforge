@@ -73,6 +73,21 @@ ImGui は 1.92 以降(動的フォント API `PushFont(font, size)` を使用)�
 - `gtest_discover_tests` は `DISCOVERY_MODE PRE_TEST`(ビルド中にテスト exe を起動しない)。
 - 手順書: `docs/github-setup.md`(push と Actions の見方)。Windows Sandbox/VM での手動検証はユーザーが後で実施。
 
+## 開発中の実機レジストリ操作
+- **開発・動作確認で HKLM の実キーへ書き込む操作は、ユーザーの明示的な承認があるまで実行しない。**
+  UI の確認は `--demo`(メモリ上のレジストリ、状態は `config/demo/`)・Dry-run・モック/HKCU テストキーで行う。
+- `--demo` 専用の開発フラグ: `--skip-wizard`、`--show preview|result|recovery|wizard|expanded`、`--page N`。
+  スクリーンショット: `tools\screenshot.ps1 -Page 4 -Out shots\x.png -ExtraArgs "--demo --skip-wizard --show preview"`。
+- ソースの文字コードは UTF-8(BOM なし)。PowerShell の `Get-Content`/`Set-Content` でソースを書き換えない(日本語が壊れる)。編集は Edit/Write ツールで。
+
+## 状態
+- M1 完了。M2 は CI でテスト確認済み(単体 79 + HKCU 統合 7、全成功)。
+- M3 実装済み(カーネル/タイマーページ、差分プレビュー、Dry-run、復元、回復提案、単一インスタンス、初回ウィザード)。
+  プリセット(`data/presets.json`: 安全2項目 ⊂ バランス4項目 ⊂ 最大5項目)も実装済み。`kernel.wer_user_reporting` はどのプリセットにも含めず個別トグルのみ。
+  リスク「中」(`drive_remapping_mitigation`)は「最大」のみ。差分プレビューでは「中」を先頭に出して強調する。
+  プリセット説明には「効果はビルド依存」を明記し、「最大＝最速」と誤解させる表現は使わない(テストで検証)。ウィザードが提案するのは「安全」。
+  M3 の新テストは CI 結果待ち。
+
 ## 配布
 - ポータブル(単一 exe + 設定フォルダ)。設定は exe 隣 `data/`、書込不可なら `%APPDATA%\LatencyForge`。
 - GitHub Actions: ビルド → テスト → SHA-256 → Release 添付。署名ステップは証明書未設定でもスキップしてビルドが通ること。

@@ -19,6 +19,26 @@ std::string nowIso8601Utc() {
     return buf;
 }
 
+std::optional<std::chrono::system_clock::time_point> parseIso8601Utc(std::string_view s) {
+    const std::string str(s);
+    int y = 0, mo = 0, d = 0, h = 0, mi = 0, sec = 0;
+    char tail = 0;
+    const int n = sscanf_s(str.c_str(), "%d-%d-%dT%d:%d:%d%c", &y, &mo, &d, &h, &mi, &sec, &tail, 1u);
+    if (n != 6 && !(n == 7 && tail == 'Z')) return std::nullopt;
+    if (y < 1970 || mo < 1 || mo > 12 || d < 1 || d > 31 || h < 0 || h > 23 || mi < 0 || mi > 59 || sec < 0 || sec > 61)
+        return std::nullopt;
+    std::tm tm{};
+    tm.tm_year = y - 1900;
+    tm.tm_mon = mo - 1;
+    tm.tm_mday = d;
+    tm.tm_hour = h;
+    tm.tm_min = mi;
+    tm.tm_sec = sec;
+    const std::time_t t = _mkgmtime(&tm);
+    if (t == static_cast<std::time_t>(-1)) return std::nullopt;
+    return std::chrono::system_clock::from_time_t(t);
+}
+
 std::wstring widen(std::string_view s) {
     if (s.empty()) return {};
     const int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);

@@ -58,6 +58,41 @@ Result<void> Engine::restoreValue(const RegPath& path, const std::optional<RegVa
     return m_reg.deleteValue(path);
 }
 
+TweakStatus Engine::status(const TweakDef& t) const {
+    TweakStatus s;
+    if (!t.supportsBuild(m_cfg.osBuild)) {
+        s.state = TweakState::Unsupported;
+        s.error = Error{ErrorCode::UnsupportedBuild, "Windows build " + std::to_string(m_cfg.osBuild) + " is outside " +
+                                                         std::to_string(t.minBuild) + ".." + std::to_string(t.maxBuild)};
+        return s;
+    }
+    if (auto pr = m_policy.check(t.target); !pr.ok()) {
+        s.state = TweakState::Blocked;
+        s.error = pr.error();
+        return s;
+    }
+    auto cur = m_reg.read(t.target);
+    if (!cur.ok()) {
+        s.state = TweakState::Blocked;
+        s.error = cur.error();
+        return s;
+    }
+    s.current = cur.value();
+    auto rec = m_state.applied.find(t.id);
+    s.tracked = rec != m_state.applied.end();
+    if (s.tracked)
+        s.state = (s.current && *s.current == rec->second.applied) ? TweakState::Applied : TweakState::Drifted;
+    else
+        s.state = (s.current && *s.current == t.data) ? TweakState::AlreadyAtTarget : TweakState::NotApplied;
+    return s;
+}
+
+bool Engine::rebootPending(std::chrono::system_clock::time_point bootTime) const {
+    if (!m_state.rebootMark) return false;
+    auto t = parseIso8601Utc(*m_state.rebootMark);
+    return t && *t > bootTime;
+}
+
 // ------------------------------------------------------------------------------------------------ apply
 
 Report Engine::apply(const std::vector<const TweakDef*>& input, ApplyOptions opt) {
@@ -221,6 +256,7 @@ Report Engine::apply(const std::vector<const TweakDef*>& input, ApplyOptions opt
         m_log.info(kCat, "applied " + it.tweakId, c.t->target.display() + " = " + c.t->data.display());
     }
     m_state.pending.reset();
+    if (rep.rebootRequired) m_state.rebootMark = now;
     if (auto s = saveState(m_cfg.stateFile, m_state); !s.ok()) {
         rep.stateSaveFailed = true;
         m_log.error(kCat, "changes were applied but the state file could not be finalized", s.error().detail);
@@ -282,6 +318,7 @@ Report Engine::revert(const std::vector<std::string>& ids, bool dryRun) {
         rep.items.push_back(std::move(it));
     }
     if (changed) {
+        if (rep.rebootRequired) m_state.rebootMark = m_clock();
         if (auto s = saveState(m_cfg.stateFile, m_state); !s.ok()) {
             rep.stateSaveFailed = true;
             m_log.error(kCat, "reverted, but the state file could not be updated", s.error().detail);
@@ -334,6 +371,7 @@ Report Engine::resolvePending() {
         return rep;
     }
     next.pending.reset();
+    next.rebootMark = m_clock();  // 中断された書き込みが再起動を要する値だったか分からないので、安全側に倒す
     if (auto s = saveState(m_cfg.stateFile, next); !s.ok()) {
         rep.ok = false;
         rep.error = s.error();

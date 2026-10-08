@@ -14,6 +14,7 @@
 #include <string>
 
 #include "dx11.hpp"
+#include "lf/util.hpp"
 #include "ui.hpp"
 
 static_assert(IMGUI_VERSION_NUM >= 19200, "Dear ImGui 1.92+ (dynamic fonts) is required");
@@ -137,14 +138,58 @@ lfapp::Page parsePage(const std::wstring& s) {
 
 }  // namespace
 
+// 二重起動防止: 名前付きミューテックス。2 つ目のインスタンスは既存ウィンドウを前面に出して終了する。
+// (state.json を 2 つのプロセスが同時に書くと、バックアップが壊れうるため。)
+struct SingleInstance {
+    HANDLE mutex = nullptr;
+    bool alreadyRunning = false;
+    explicit SingleInstance(bool demo) {
+        mutex = CreateMutexW(nullptr, FALSE, demo ? L"Local\\LatencyForge.SingleInstance.Demo" : L"Local\\LatencyForge.SingleInstance");
+        alreadyRunning = mutex && GetLastError() == ERROR_ALREADY_EXISTS;
+    }
+    ~SingleInstance() {
+        if (mutex) CloseHandle(mutex);
+    }
+    SingleInstance(const SingleInstance&) = delete;
+    SingleInstance& operator=(const SingleInstance&) = delete;
+};
+
+constexpr const wchar_t* kWindowClass = L"LatencyForgeWnd";
+constexpr const wchar_t* kTitle = L"LatencyForge";
+constexpr const wchar_t* kTitleDemo = L"LatencyForge (DEMO)";
+
+void bringExistingWindowToFront(bool demo) {
+    if (HWND w = FindWindowW(kWindowClass, demo ? kTitleDemo : kTitle)) {
+        if (IsIconic(w)) ShowWindow(w, SW_RESTORE);
+        SetForegroundWindow(w);
+    }
+}
+
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     // 開発/スクリーンショット用: --page N (0=Home .. 8=Settings)
+    // --demo はメモリ上のレジストリで動作し、実機のレジストリには一切触れない。
+    //   --skip-wizard / --show preview|result|recovery|wizard|expanded は --demo のときだけ有効。
     lfapp::Page startPage = lfapp::Page::Home;
+    bool demo = false, skipWizard = false;
+    std::string show;
     int argc = 0;
     if (LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc)) {
-        for (int i = 1; i + 1 < argc; ++i)
-            if (std::wstring(argv[i]) == L"--page") startPage = parsePage(argv[i + 1]);
+        for (int i = 1; i < argc; ++i) {
+            const std::wstring a = argv[i];
+            if (a == L"--demo") demo = true;
+            if (a == L"--skip-wizard") skipWizard = true;
+            if (i + 1 < argc && a == L"--page") startPage = parsePage(argv[i + 1]);
+            if (i + 1 < argc && a == L"--show") {
+                show = lf::narrow(argv[i + 1]);
+            }
+        }
         LocalFree(argv);
+    }
+
+    SingleInstance instance(demo);
+    if (instance.alreadyRunning) {
+        bringExistingWindowToFront(demo);
+        return 0;
     }
 
     wchar_t exePath[MAX_PATH]{};
@@ -161,13 +206,13 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     wc.hIcon = LoadIconW(hInst, MAKEINTRESOURCEW(1));
     wc.hIconSm = wc.hIcon;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.lpszClassName = L"LatencyForgeWnd";
+    wc.lpszClassName = kWindowClass;
     RegisterClassExW(&wc);
 
     const float sysScale = static_cast<float>(GetDpiForSystem()) / 96.0f;
     RECT wr{0, 0, static_cast<LONG>(1180 * sysScale), static_cast<LONG>(760 * sysScale)};
     AdjustWindowRectExForDpi(&wr, WS_OVERLAPPEDWINDOW, FALSE, 0, GetDpiForSystem());
-    app.hwnd = CreateWindowExW(0, wc.lpszClassName, L"LatencyForge", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+    app.hwnd = CreateWindowExW(0, wc.lpszClassName, demo ? kTitleDemo : kTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                                wr.right - wr.left, wr.bottom - wr.top, nullptr, nullptr, hInst, nullptr);
     if (!app.hwnd) return 1;
 
@@ -192,6 +237,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     init.configDir = resolveConfigDir(exeDir);
     init.startPage = startPage;
     init.warp = app.dx.isWarp();
+    init.demo = demo;
+    init.skipWizard = demo && skipWizard;
+    init.show = demo ? show : std::string();
     app.ui.init(init, dpi);
     ImGui_ImplWin32_Init(app.hwnd);
     ImGui_ImplDX11_Init(app.dx.device(), app.dx.context());

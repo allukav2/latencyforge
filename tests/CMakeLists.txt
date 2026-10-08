@@ -4,6 +4,9 @@ add_executable(lf_tests
   log_test.cpp
   policy_test.cpp
   tweak_test.cpp
+  lang_test.cpp
+  util_test.cpp
+  preset_test.cpp
   engine_test.cpp
   registry_integration_test.cpp
 )

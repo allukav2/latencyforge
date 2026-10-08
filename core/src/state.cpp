@@ -38,6 +38,7 @@ Result<State> loadState(const std::filesystem::path& file, const Policy& policy)
         return corrupt("unsupported state version");
 
     State st;
+    if (auto it = doc.find("rebootMark"); it != doc.end() && it->is_string()) st.rebootMark = it->get<std::string>();
     if (auto it = doc.find("applied"); it != doc.end()) {
         if (!it->is_object()) return corrupt("'applied' must be an object");
         for (auto rec = it->begin(); rec != it->end(); ++rec) {
@@ -86,6 +87,7 @@ Result<State> loadState(const std::filesystem::path& file, const Policy& policy)
 Result<void> saveState(const std::filesystem::path& file, const State& st) {
     json doc;
     doc["version"] = 1;
+    doc["rebootMark"] = st.rebootMark ? json(*st.rebootMark) : json(nullptr);
     json applied = json::object();
     for (const auto& [id, r] : st.applied) {
         json j = pathJson(r.target);

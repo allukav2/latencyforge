@@ -37,6 +37,8 @@ struct PendingTx {
 struct State {
     std::map<std::string, AppliedRecord> applied;
     std::optional<PendingTx> pending;
+    // 「再起動しないと反映されない変更」を最後に確定した時刻 (ISO-8601 UTC)。起動時刻より新しければ再起動待ち。
+    std::optional<std::string> rebootMark;
 };
 
 // ファイルが無ければ空の State。壊れている/ポリシー違反のパスを含む場合は StateCorrupt

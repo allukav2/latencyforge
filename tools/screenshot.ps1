@@ -4,7 +4,8 @@ param(
     [int]$Page = 0,
     [string]$Out = "shots\home.png",
     [string]$Exe = "$PSScriptRoot\..\build\x64-dev\app\Release\latencyforge.exe",
-    [int]$DelayMs = 1500
+    [int]$DelayMs = 1500,
+    [string]$ExtraArgs = ""   # space-separated, e.g. "--demo --skip-wizard --show preview"
 )
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
@@ -20,7 +21,7 @@ public class W {
 "@
 [W]::SetProcessDPIAware() | Out-Null
 $exe = (Resolve-Path $Exe).Path
-$p = Start-Process -FilePath $exe -ArgumentList @("--page", $Page) -PassThru
+$p = Start-Process -FilePath $exe -ArgumentList (@("--page", $Page) + @($ExtraArgs -split '\s+' | Where-Object { $_ })) -PassThru
 Start-Sleep -Milliseconds $DelayMs
 $p.Refresh()
 [W]::ShowWindow($p.MainWindowHandle, 9) | Out-Null

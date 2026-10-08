@@ -72,9 +72,12 @@ std::string detectOsLine() {
 bool Ui::init(const UiInit& in, float dpiScale) {
     m_exeDir = in.exeDir;
     m_configDir = in.configDir;
+    m_demo = in.demo;
+    m_settingsDir = in.demo ? in.configDir / "demo" : in.configDir;  // デモの設定は実機の設定と混ぜない
     m_page = m_prevPage = in.startPage;
     m_warp = in.warp;
     m_dpi = dpiScale;
+    m_demoShow = in.demo ? in.show : std::string();
 
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;  // ウィンドウ配置の ini は書かない
@@ -93,11 +96,25 @@ bool Ui::init(const UiInit& in, float dpiScale) {
     m_fontBold = tryLoadFont(kBold, std::size(kBold), 16.0f);
     if (!m_fontBold) m_fontBold = m_fontBody;
 
-    m_settings.loadFile(m_configDir / "settings.json");
+    m_settings.loadFile(m_settingsDir / "settings.json");
+    if (m_demo && in.skipWizard) m_settings.acceptedDisclaimer = lf::kDisclaimerVersion;  // 保存はしない
+    if (m_demo && (m_demoShow == "wizard" || m_demoShow == "wizard-preset")) m_settings.acceptedDisclaimer = 0;
+    if (m_demo && m_demoShow == "wizard-preset") {
+        m_wizardStep = 2;
+        m_wizardAgree = true;
+    }
     m_osLine = detectOsLine();
     m_pal = makePalette(m_settings.accentRgb);
     loadLanguage();
     applyTheme();
+
+    m_be = std::make_unique<Backend>();
+    BackendOptions bo;
+    bo.exeDir = m_exeDir;
+    bo.configDir = m_configDir;
+    bo.demo = m_demo;
+    bo.seedDemoPending = m_demo && m_demoShow == "recovery";
+    m_be->init(bo);
     return true;
 }
 
@@ -121,13 +138,24 @@ void Ui::loadLanguage() {
         const bool ja = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_JAPANESE;
         lang = (ja && m_haveJpFont) ? "ja" : "en";
     }
+    m_isJa = lang == "ja";
     const auto dir = m_exeDir / "data" / "lang";
     std::string err;
     if (!m_tr.loadFile(dir / "en.json", &err)) OutputDebugStringA(("lang en: " + err + "\n").c_str());
     if (lang == "ja" && !m_tr.loadFile(dir / "ja.json", &err)) OutputDebugStringA(("lang ja: " + err + "\n").c_str());
 }
 
-void Ui::saveSettings() { m_settings.saveFile(m_configDir / "settings.json"); }
+void Ui::saveSettings() { m_settings.saveFile(m_settingsDir / "settings.json"); }
+
+std::string Ui::fmt(const char* key, std::initializer_list<std::string> args) const {
+    std::string s = t(key);
+    int i = 0;
+    for (const std::string& a : args) {
+        const std::string ph = "{" + std::to_string(i++) + "}";
+        for (size_t pos = s.find(ph); pos != std::string::npos; pos = s.find(ph, pos + a.size())) s.replace(pos, ph.size(), a);
+    }
+    return s;
+}
 
 // ---------------------------------------------------------------- helpers
 
@@ -176,6 +204,45 @@ bool Ui::secondaryButton(const char* label, float width, bool enabled, const cha
     return clicked && enabled;
 }
 
+void Ui::coloredText(const ImVec4& color, const char* text) {
+    ImGui::PushStyleColor(ImGuiCol_Text, color);
+    ImGui::TextWrapped("%s", text);
+    ImGui::PopStyleColor();
+}
+
+bool Ui::primaryButton(const char* label, float width, bool enabled, const char* disabledReason) {
+    ImGui::PushStyleColor(ImGuiCol_Button, m_pal.accent);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, m_pal.accentHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, mix(m_pal.accent, ImVec4(0, 0, 0, 1), 0.2f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+    if (!enabled) ImGui::BeginDisabled();
+    const bool clicked = ImGui::Button(label, ImVec2(width, 0));
+    if (!enabled) ImGui::EndDisabled();
+    ImGui::PopStyleColor(4);
+    if (!enabled && disabledReason) tooltipIfHovered(disabledReason, true);
+    return clicked && enabled;
+}
+
+// 「詳細 v」: クリックで開閉。戻り値は開閉アニメの進行 (0=閉, 1=開)。
+float Ui::expander(const char* id, const char* label, bool* open) {
+    ImGui::PushID(id);
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const ImVec2 ts = ImGui::CalcTextSize(label);
+    if (ImGui::InvisibleButton("##d", ImVec2(ts.x + S(28), ts.y + S(6)))) *open = !*open;
+    const float o = animTo(ImGui::GetItemID(), *open ? 1.0f : 0.0f);
+    const ImU32 col = u32(ImGui::IsItemHovered() ? m_pal.text : m_pal.textDim);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddText(ImVec2(p.x, p.y + S(3)), col, label);
+    const ImVec2 c(p.x + ts.x + S(14), p.y + (ts.y + S(6)) * 0.5f);
+    const float k = S(4);
+    const float dir = 1.0f - 2.0f * o;  // 閉: +1 (下向き) → 開: -1 (上向き)
+    const ImVec2 pts[3] = {ImVec2(c.x - k, c.y - k * 0.5f * dir), ImVec2(c.x, c.y + k * 0.5f * dir),
+                           ImVec2(c.x + k, c.y - k * 0.5f * dir)};
+    dl->AddPolyline(pts, 3, col, 0, S(1.6f));
+    ImGui::PopID();
+    return o;
+}
+
 bool Ui::pill(const char* label, bool selected) {
     ImGui::PushStyleColor(ImGuiCol_Button, selected ? m_pal.accentSoft : ImGui::GetStyle().Colors[ImGuiCol_Button]);
     ImGui::PushStyleColor(ImGuiCol_Text, selected ? m_pal.accentHover : m_pal.text);
@@ -202,6 +269,12 @@ void Ui::badge(const char* text, const ImVec4& color) {
 }
 
 bool Ui::toggle(const char* strId, bool* value, bool enabled, const char* disabledReason) {
+    const bool changed = toggleRaw(strId, *value, enabled, disabledReason);
+    if (changed) *value = !*value;
+    return changed;
+}
+
+bool Ui::toggleRaw(const char* strId, bool on, bool enabled, const char* disabledReason) {
     const float w = S(44), h = S(24);
     ImGui::PushID(strId);
     const ImVec2 p = ImGui::GetCursorScreenPos();
@@ -209,26 +282,22 @@ bool Ui::toggle(const char* strId, bool* value, bool enabled, const char* disabl
     const ImGuiID id = ImGui::GetItemID();
     const bool focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
     if (!enabled && disabledReason) tooltipIfHovered(disabledReason, true);
-    bool changed = false;
-    if (pressed && enabled) {
-        *value = !*value;
-        changed = true;
-    }
-    const float t = animTo(id, *value ? 1.0f : 0.0f, 16.0f);
+    const bool changed = pressed && enabled;
+    const float t = animTo(id, on ? 1.0f : 0.0f, 16.0f);
     const float hov = animTo(id + 1, (ImGui::IsItemHovered() && enabled) ? 1.0f : 0.0f);
     const float dim = enabled ? 1.0f : 0.4f;
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float r = h * 0.5f;
-    const ImVec4 off = mix(ImVec4(0.17f, 0.19f, 0.24f, 1), ImVec4(0.23f, 0.26f, 0.32f, 1), hov);
-    const ImVec4 on = mix(m_pal.accent, m_pal.accentHover, hov);
+    const ImVec4 offCol = mix(ImVec4(0.17f, 0.19f, 0.24f, 1), ImVec4(0.23f, 0.26f, 0.32f, 1), hov);
+    const ImVec4 onCol = mix(m_pal.accent, m_pal.accentHover, hov);
     // 控えめなグロー (ON のときのみ)
     for (int i = 3; i >= 1; --i) {
         const float e = S(2.0f) * i;
         dl->AddRectFilled(p - ImVec2(e, e), p + ImVec2(w + e, h + e), u32(withAlpha(m_pal.accent, 0.07f * t * dim)),
                           r + e);
     }
-    ImVec4 track = mix(off, on, t);
+    ImVec4 track = mix(offCol, onCol, t);
     track.w *= dim;
     dl->AddRectFilled(p, p + ImVec2(w, h), u32(track), r);
     const float kx = p.x + r + (w - h) * t;
@@ -321,12 +390,14 @@ void Ui::frame() {
         m_prevPage = m_page;
         m_anim[kPageAnimId] = 0.0f;
         m_animatingNext = true;
+        m_rowsDirty = true;  // ページを開くたびに現在値を読み直す
     }
 
     const float h = io.DisplaySize.y;
     drawSidebar(h);
     ImGui::SameLine(0, 0);
     drawContent();
+    drawModals();
     ImGui::End();
 
     m_animating = m_animatingNext;
@@ -391,7 +462,7 @@ void Ui::drawContent() {
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pt);
     switch (m_page) {
         case Page::Home: pageHome(); break;
-        case Page::Kernel: pageKernelPreview(); break;
+        case Page::Kernel: pageKernel(); break;
         case Page::Settings: pageSettings(); break;
         default: pagePlaceholder(m_page); break;
     }
@@ -405,11 +476,11 @@ void Ui::pageHome() {
     pageHeader(t("home.title"), t("home.subtitle"));
 
     if (beginCard("##notice")) {
-        badge(t("common.preview"), m_pal.ok);
+        badge(m_demo ? t("common.demo") : t("common.safe"), m_demo ? m_pal.warn : m_pal.ok);
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(t("home.noticeTitle"));
-        dimText(t("home.notice"));
+        ImGui::TextUnformatted(m_demo ? t("home.demoTitle") : t("home.noticeTitle"));
+        dimText(m_demo ? t("home.demoNotice") : t("home.notice"));
     }
     endCard();
 
@@ -427,122 +498,7 @@ void Ui::pageHome() {
     }
     endCard();
 
-    pushBold();
-    ImGui::TextUnformatted(t("home.presets"));
-    popFont();
-
-    const float gap = ImGui::GetStyle().ItemSpacing.x;
-    const float cw = (ImGui::GetContentRegionAvail().x - gap * 2.0f) / 3.0f;
-    struct P {
-        const char *id, *name, *desc;
-        bool mid;
-    };
-    const P presets[] = {{"##p1", "home.presetSafe", "home.presetSafeDesc", false},
-                         {"##p2", "home.presetBalanced", "home.presetBalancedDesc", false},
-                         {"##p3", "home.presetMax", "home.presetMaxDesc", true}};
-    for (int i = 0; i < 3; ++i) {
-        if (i) ImGui::SameLine();
-        if (beginCard(presets[i].id, S(190), cw)) {
-            pushBold();
-            ImGui::TextUnformatted(t(presets[i].name));
-            popFont();
-            badge(presets[i].mid ? t("common.riskMid") : t("common.riskLow"), presets[i].mid ? m_pal.warn : m_pal.ok);
-            ImGui::Dummy(ImVec2(0, S(2)));
-            dimText(t(presets[i].desc));
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - S(16) - ImGui::GetFrameHeight());
-            secondaryButton(t("home.previewApply"), -FLT_MIN, false, t("common.comingSoon"));
-        }
-        endCard();
-    }
-}
-
-void Ui::sampleTweakCard() {
-    if (!beginCard("##sample")) {
-        endCard();
-        return;
-    }
-    ImGui::AlignTextToFramePadding();
-    pushBold();
-    ImGui::TextUnformatted(t("sample.title"));
-    popFont();
-    ImGui::SameLine();
-    badge(t("common.riskLow"), m_pal.ok);
-    ImGui::SameLine();
-    badge(m_sampleOn ? t("common.applied") : t("common.notApplied"), m_sampleOn ? m_pal.accent : m_pal.textDim);
-    ImGui::SameLine();
-    badge(t("common.preview"), m_pal.warn);
-
-    ImGui::SameLine(ImGui::GetContentRegionMax().x - S(44));
-    toggle("sample", &m_sampleOn);
-
-    dimText(t("sample.desc"));
-    ImGui::Dummy(ImVec2(0, S(2)));
-
-    // 現在値 → 変更後
-    ImGui::PushStyleColor(ImGuiCol_Text, m_pal.textDim);
-    ImGui::TextUnformatted(t("common.current"));
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(m_sampleOn ? "1" : "0");
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, m_pal.textDim);
-    ImGui::TextUnformatted("->");
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, m_pal.accentHover);
-    ImGui::TextUnformatted("1");
-    ImGui::PopStyleColor();
-
-    // 詳細 (展開)
-    ImGui::Dummy(ImVec2(0, S(2)));
-    ImGui::PushID("detail");
-    const ImVec2 p = ImGui::GetCursorScreenPos();
-    const char* lbl = t("common.details");
-    const ImVec2 ts = ImGui::CalcTextSize(lbl);
-    if (ImGui::InvisibleButton("##d", ImVec2(ts.x + S(28), ts.y + S(6)))) m_sampleOpen = !m_sampleOpen;
-    const ImGuiID did = ImGui::GetItemID();
-    const float open = animTo(did, m_sampleOpen ? 1.0f : 0.0f);
-    const bool hov = ImGui::IsItemHovered();
-    const ImU32 col = u32(hov ? m_pal.text : m_pal.textDim);
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddText(ImVec2(p.x, p.y + S(3)), col, lbl);
-    // シェブロン (開閉で回転)
-    const ImVec2 c(p.x + ts.x + S(14), p.y + (ts.y + S(6)) * 0.5f);
-    const float k = S(4);
-    const float dir = 1.0f - 2.0f * open;  // 閉: +1 (下向き) → 開: -1 (上向き)
-    const ImVec2 pts[3] = {ImVec2(c.x - k, c.y - k * 0.5f * dir), ImVec2(c.x, c.y + k * 0.5f * dir),
-                           ImVec2(c.x + k, c.y - k * 0.5f * dir)};
-    dl->AddPolyline(pts, 3, col, 0, S(1.6f));
-    ImGui::PopID();
-
-    if (open > 0.01f) {
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * open);
-        ImGui::Separator();
-        dimText(t("sample.detail"));
-        ImGui::PushStyleColor(ImGuiCol_Text, m_pal.warn);
-        ImGui::TextWrapped("%s", t("common.buildDependent"));
-        ImGui::PopStyleColor();
-        ImGui::PopStyleVar();
-    }
-
-    ImGui::Dummy(ImVec2(0, S(4)));
-    if (secondaryButton(t("common.revert"), 0, m_sampleOn, t("common.nothingToRevert"))) m_sampleOn = false;
-    ImGui::SameLine();
-    badge(t("common.restartRequired"), m_pal.warn);
-    endCard();
-}
-
-void Ui::pageKernelPreview() {
-    pageHeader(t("nav.kernel"), t("kernel.subtitle"));
-    if (beginCard("##knotice")) {
-        badge(t("common.preview"), m_pal.warn);
-        ImGui::SameLine();
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(t("kernel.noticeTitle"));
-        dimText(t("kernel.notice"));
-    }
-    endCard();
-    sampleTweakCard();
+    drawPresetCards();
 }
 
 void Ui::pagePlaceholder(Page page) {

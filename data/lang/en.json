@@ -13,23 +13,82 @@
   },
   "common": {
     "preview": "PREVIEW",
+    "demo": "DEMO",
+    "safe": "SAFE",
     "comingSoon": "Not available in this build yet (planned for a later milestone).",
     "riskLow": "Risk: Low",
     "riskMid": "Risk: Medium",
-    "applied": "Applied",
-    "notApplied": "Not applied",
-    "revert": "Revert",
-    "nothingToRevert": "Nothing to revert: this change is not applied.",
-    "details": "Details",
-    "current": "Current → after:",
     "restartRequired": "Restart required",
-    "buildDependent": "The effect depends on the Windows build and may be negligible on your system."
+    "buildDependent": "The effect depends on the Windows build and may be negligible on your system.",
+    "close": "Close",
+    "cancel": "Cancel",
+    "reload": "Reload",
+    "revert": "Revert",
+    "nothingToRevert": "Nothing to revert: no backup exists for this change.",
+    "details": "Details",
+    "technicalDetails": "Technical details",
+    "absent": "(does not exist)",
+    "currentValue": "Current",
+    "beforeValue": "Before",
+    "afterValue": "After",
+    "restoredValue": "Restored to",
+    "originalValue": "Original value",
+    "win32": "Win32 error"
+  },
+  "state": {
+    "notApplied": "Not applied",
+    "applied": "Applied",
+    "drifted": "Changed externally",
+    "alreadyAtTarget": "Already at target",
+    "unsupported": "Unsupported",
+    "blocked": "Unavailable"
+  },
+  "status": {
+    "item": {
+      "WouldChange": "Will change",
+      "WouldRevert": "Will be restored",
+      "Applied": "Applied",
+      "AlreadyApplied": "Already at target",
+      "Skipped": "Skipped",
+      "Failed": "Failed",
+      "Blocked": "Blocked",
+      "RolledBack": "Rolled back",
+      "RollbackFailed": "Rollback failed",
+      "Reverted": "Restored",
+      "NotApplied": "Not applied"
+    }
+  },
+  "tweak": {
+    "unsupportedBuild": "This Windows build ({0}) is not supported (supported builds: {1}).",
+    "alreadyAtTarget": "The value is already at the target. It was not changed by this tool, so there is nothing to restore."
+  },
+  "error": {
+    "invalidPath": "The registry path is invalid.",
+    "policyDenied": "This registry item cannot be changed because it is protected by the safety policy.",
+    "unsupportedBuild": "This Windows build is not supported by this setting.",
+    "unsupportedValueType": "The existing value has a type that cannot be backed up safely, so it was left untouched.",
+    "accessDenied": "Access was denied. Run the tool as administrator.",
+    "registryOpen": "The registry key could not be opened.",
+    "registryRead": "The registry value could not be read.",
+    "registryWrite": "The registry value could not be written.",
+    "registryDelete": "The registry value could not be deleted.",
+    "stateCorrupt": "The backup/state file is damaged or was modified, so all changes are disabled to protect your backups.",
+    "stateWrite": "The backup could not be saved, so nothing was changed.",
+    "rollbackIncomplete": "The rollback did not complete. Restoring is recommended at the next start.",
+    "pendingTransaction": "An earlier operation did not finish. Restore the previous state first.",
+    "definitionInvalid": "A tweak definition file is invalid and was not loaded.",
+    "io": "A file could not be read or written.",
+    "notFound": "The requested item was not found.",
+    "notLoaded": "The state file has not been loaded.",
+    "restorePointFailed": "The restore point could not be created. System Protection may be turned off."
   },
   "home": {
     "title": "Home",
     "subtitle": "System overview and one-click presets. Every change is previewed before it is applied and can be reverted.",
-    "noticeTitle": "This build makes no system changes",
-    "notice": "This is the UI foundation (milestone 1). Registry access, backups and presets are implemented in later milestones.",
+    "noticeTitle": "Every change is previewed first and can be reverted",
+    "notice": "Before anything is written you see a diff of current and new values. The previous values are backed up automatically. The tool never touches security features such as Defender, UAC, Windows Update or the firewall.",
+    "demoTitle": "Demo mode: the real registry is not touched",
+    "demoNotice": "This window works on an in-memory registry. Nothing you do here affects your system.",
     "sysTitle": "System",
     "os": "OS",
     "logicalCpus": "Logical processors",
@@ -38,23 +97,86 @@
     "rendererWarp": "Direct3D 11 (WARP software fallback)",
     "sysMore": "CPU topology (P/E cores, CCD, L3 groups) and GPU vendor detection arrive in a later milestone.",
     "presets": "Presets",
-    "presetSafe": "Safe",
-    "presetSafeDesc": "Only the most conservative tweaks. Recommended for the first run.",
-    "presetBalanced": "Balanced",
-    "presetBalancedDesc": "A reasonable set of low-risk tweaks for competitive play.",
-    "presetMax": "Maximum",
-    "presetMaxDesc": "Everything supported, including medium-risk tweaks. Review the diff carefully.",
+    "presetNone": "No presets are available.",
+    "presetPending": "{0} of {1} items would be changed",
+    "presetUnsupported": "{0} item(s) are not supported on this Windows build and are skipped.",
+    "presetNothing": "Everything in this preset is already applied or at its target value.",
     "previewApply": "Preview changes…"
   },
   "kernel": {
-    "subtitle": "Kernel and timer registry values (restart required).",
-    "noticeTitle": "Layout preview",
-    "notice": "The card below is a non-functional sample that shows the final tweak card layout. Nothing is written to the registry."
+    "subtitle": "Kernel and timer registry values. A restart is required for them to take effect.",
+    "empty": "No tweak definitions were found for this page.",
+    "dryRun": "Dry-run mode",
+    "dryRunDesc": "Shows the differences only. Nothing is applied or restored while this is on.",
+    "applyAll": "Apply all not-yet-applied ({0})…",
+    "revertAll": "Revert everything…",
+    "nothingToApply": "Everything supported is already applied or at its target value.",
+    "disabledState": "Changes are disabled because the state file could not be loaded.",
+    "disabledPending": "Changes are disabled until the unfinished operation has been restored.",
+    "stateErrorTitle": "The state file cannot be used",
+    "stateErrorBody": "To protect your backups, all changes are disabled. The damaged file has been left untouched for diagnosis.",
+    "pendingTitle": "An unfinished change was found",
+    "pendingBody": "The previous operation may have been interrupted. Restoring the previous state is recommended before making new changes.",
+    "pendingButton": "Restore now…",
+    "rebootTitle": "A restart is required",
+    "rebootBody": "Restart Windows (not just shut down) for the changes to take effect. With Fast Startup, only a restart reloads these values.",
+    "defIssuesTitle": "{0} tweak definition(s) could not be loaded",
+    "demoBanner": "Demo mode: you are working on an in-memory registry. Your real registry is not touched."
   },
-  "sample": {
-    "title": "Sample tweak card",
-    "desc": "One-line description of what this tweak changes.",
-    "detail": "The expanded section explains the registry path, the value being written, why it may help, and how to revert it."
+  "preview": {
+    "applyTitle": "Review the changes",
+    "applyDesc": "The following values will be written. The current values are backed up first, and you can revert at any time.",
+    "revertTitle": "Review what will be restored",
+    "revertDesc": "The following values will be put back to what they were before this tool changed them.",
+    "dryRunTitle": "Dry-run: differences only",
+    "dryRunDesc": "Nothing will be written. Turn off Dry-run mode to apply.",
+    "nothingToDo": "There is nothing to change.",
+    "confirmApply": "Apply",
+    "confirmRevert": "Restore",
+    "cannotApply": "This cannot be applied:",
+    "fromPreset": "Preset: {0}",
+    "mediumRisk": "This includes items rated MEDIUM risk. Review them carefully before applying.",
+    "mediumRiskItem": "Medium risk: make sure you understand this change before applying it."
+  },
+  "result": {
+    "applyOk": "The changes were applied",
+    "revertOk": "The values were restored",
+    "recoverOk": "The previous state was restored",
+    "failed": "The operation did not complete",
+    "rolledBack": "Everything written so far was rolled back, so your system is back to its previous state.",
+    "rollbackIncomplete": "The rollback itself did not complete. At the next start the tool will offer to restore the previous state. Do not make further changes until then.",
+    "stateSaveFailed": "The values were changed but the state file could not be finalized. A restore will be offered at the next start.",
+    "rebootNeeded": "Restart Windows for the changes to take effect."
+  },
+  "recovery": {
+    "title": "An unfinished change was found",
+    "body": "The tool or Windows may have stopped while changes were being written. To be safe, restore the state from before that operation.",
+    "info": "Started: {0}. Affected items: {1}.",
+    "restore": "Restore the previous state",
+    "later": "Later"
+  },
+  "stateError": {
+    "title": "The state file cannot be used",
+    "body": "The backup/state file is damaged or has been modified. All changes are disabled to protect your backups; the file was left untouched. Close the tool and check the file, or restore a copy."
+  },
+  "wizard": {
+    "title": "Welcome — please read before you start",
+    "step": "Step {0} of 3",
+    "disclaimerBody": "This software is provided free of charge under the MIT License, AS IS, without warranty of any kind.\n\n• It changes registry values. The effect depends on your Windows build and hardware and may be zero.\n• The previous values are backed up automatically and can be restored from this app, but a complete restore in every situation cannot be guaranteed. Back up important data and consider creating a system restore point first.\n• Some anti-cheat software (for example Vanguard or EAC) may warn about or block changes to process or system settings. Follow the terms of your games and use this tool at your own risk.\n• The author is not liable for any damage resulting from the use of this software.\n• The tool never touches security features (Defender, UAC, Windows Update, firewall, and so on). It makes no network connections and has no telemetry.\n\nSee DISCLAIMER.md for details.",
+    "agree": "I have read and understood the above and accept the risk.",
+    "decline": "Decline and exit",
+    "next": "Next",
+    "restoreTitle": "Create a system restore point (recommended)",
+    "restoreBody": "A restore point lets you roll Windows back even if something unexpected happens. Windows may skip creating a new one if one was made within the last 24 hours, and System Protection must be turned on.",
+    "createRestorePoint": "Create restore point",
+    "restoreOk": "The restore point request completed.",
+    "restoreFailed": "The restore point could not be created.",
+    "restoreDemo": "Demo mode: no restore point is created.",
+    "skipStep": "Skip this step",
+    "presetTitle": "Suggested preset: Safe",
+    "presetBody": "If you want a starting point, the Safe preset is the most conservative option. Nothing is applied now: you will see the exact differences first and can still cancel. The effect depends on your Windows build and may be nil.",
+    "presetReview": "Review the Safe preset…",
+    "presetLater": "Not now"
   },
   "placeholder": {
     "affinity": {
@@ -75,11 +197,11 @@
     },
     "backup": {
       "subtitle": "Change history, restore points and full revert.",
-      "desc": "Planned (milestones 2–3): per-tweak restore, restore all, and “revert everything and exit”."
+      "desc": "Planned: a history viewer. Per-tweak restore and “revert everything” are already available on the Kernel / Timer page."
     },
     "log": {
       "subtitle": "Operation log with filter, copy and export.",
-      "desc": "Planned (milestone 2)."
+      "desc": "Planned. Logs are already written to latencyforge.log next to the settings."
     }
   },
   "settings": {

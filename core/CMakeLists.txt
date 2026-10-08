@@ -10,6 +10,8 @@ add_library(lf_core STATIC
   src/state.cpp
   src/history.cpp
   src/engine.cpp
+  src/system.cpp
+  src/preset.cpp
 )
 target_include_directories(lf_core PUBLIC include)
 target_compile_features(lf_core PUBLIC cxx_std_20)

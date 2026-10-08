@@ -72,6 +72,8 @@ void applyStyle(const Palette& p) {
     c[ImGuiCol_SliderGrab] = p.accent;
     c[ImGuiCol_SliderGrabActive] = p.accentHover;
     c[ImGuiCol_NavCursor] = p.accent;
+    c[ImGuiCol_ModalWindowDimBg] = {0.02f, 0.03f, 0.05f, 0.62f};
+    c[ImGuiCol_TableBorderLight] = p.border;
     c[ImGuiCol_TextSelectedBg] = withAlpha(p.accent, 0.35f);
 }
 

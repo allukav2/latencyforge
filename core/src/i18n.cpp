@@ -1,5 +1,6 @@
 #include "lf/i18n.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -58,6 +59,14 @@ bool Translator::loadFile(const std::filesystem::path& path, std::string* error)
 void Translator::clear() {
     m_map.clear();
     m_missing.clear();
+}
+
+std::vector<std::string> Translator::keys() const {
+    std::vector<std::string> out;
+    out.reserve(m_map.size());
+    for (const auto& [k, v] : m_map) out.push_back(k);
+    std::sort(out.begin(), out.end());
+    return out;
 }
 
 const char* Translator::tr(std::string_view key) const {

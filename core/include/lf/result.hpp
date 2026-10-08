@@ -26,6 +26,7 @@ enum class ErrorCode {
     Io,
     NotFound,
     NotLoaded,
+    RestorePointFailed,
 };
 
 const char* errorKey(ErrorCode code);  // 例: "error.policyDenied"
