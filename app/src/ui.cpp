@@ -108,6 +108,8 @@ bool Ui::init(const UiInit& in, float dpiScale) {
     loadLanguage();
     applyTheme();
 
+    detectSystemInfo(in);
+
     m_be = std::make_unique<Backend>();
     BackendOptions bo;
     bo.exeDir = m_exeDir;
@@ -115,6 +117,8 @@ bool Ui::init(const UiInit& in, float dpiScale) {
     bo.demo = m_demo;
     bo.seedDemoPending = m_demo && m_demoShow == "recovery";
     m_be->init(bo);
+    m_be->log.info("system", m_sysSummary);
+    for (lf::CompatIssue i : m_compat.issues) m_be->log.warn("system", std::string("outside the supported range: ") + lf::compatIssueKey(i));
     return true;
 }
 
@@ -336,7 +340,7 @@ void Ui::pageHeader(const char* title, const char* subtitle) {
     ImGui::Dummy(ImVec2(0, S(6)));
 }
 
-bool Ui::navItem(const char* label, Page page, bool selected) {
+bool Ui::navItem(const char* label, Page page, bool selected, const char* disabledReason) {
     ImGui::PushID(static_cast<int>(page));
     const float h = S(40);
     const float w = ImGui::GetContentRegionAvail().x;
@@ -344,6 +348,9 @@ bool Ui::navItem(const char* label, Page page, bool selected) {
     const bool clicked = ImGui::InvisibleButton("##nav", ImVec2(w, h));
     const ImGuiID id = ImGui::GetItemID();
     const bool hovered = ImGui::IsItemHovered();
+    // 非対応の機能: グレーアウトして、理由をツールチップで示す (ページ自体は開いて詳細を読める)。
+    if (disabledReason) tooltipIfHovered(disabledReason, true);
+    const float navAlpha = disabledReason ? 0.42f : 1.0f;
     const bool focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
     const float hv = animTo(id, hovered ? 1.0f : 0.0f);
     const float sel = animTo(id + 1, selected ? 1.0f : 0.0f);
@@ -352,12 +359,14 @@ bool Ui::navItem(const char* label, Page page, bool selected) {
     const ImVec2 a = p + ImVec2(0, S(2)), b = p + ImVec2(w, h - S(2));
     ImVec4 bg = withAlpha(m_pal.cardHover, 0.75f * hv);
     bg = mix(bg, m_pal.accentSoft, sel);
+    bg.w *= navAlpha;
     dl->AddRectFilled(a, b, u32(bg), S(10));
     const float cy = p.y + h * 0.5f;
     const float bar = S(6) + S(14) * sel;
     dl->AddRectFilled(ImVec2(a.x + S(3), cy - bar * 0.5f), ImVec2(a.x + S(6), cy + bar * 0.5f),
-                      u32(withAlpha(m_pal.accent, sel)), S(2));
-    const ImVec4 tc = mix(m_pal.textDim, m_pal.text, std::max(sel, hv * 0.8f));
+                      u32(withAlpha(m_pal.accent, sel * navAlpha)), S(2));
+    ImVec4 tc = mix(m_pal.textDim, m_pal.text, std::max(sel, hv * 0.8f));
+    tc.w *= navAlpha;
     const ImVec2 ts = ImGui::CalcTextSize(label);
     dl->AddText(ImVec2(a.x + S(18), cy - ts.y * 0.5f), u32(tc), label);
     if (focused) dl->AddRect(a, b, u32(withAlpha(m_pal.accent, 0.8f)), S(10), 0, 1.5f);
@@ -433,13 +442,18 @@ void Ui::drawSidebar(float height) {
     }
 
     const int count = static_cast<int>(std::size(kNav));
+    auto reasonOf = [&](Page pg) -> const char* {
+        const size_t i = static_cast<size_t>(pg);
+        return m_feat[i].available ? nullptr : m_featReason[i].c_str();
+    };
     for (int i = 0; i < count - 1; ++i) {
-        if (navItem(t(kNav[i].key), kNav[i].page, m_page == kNav[i].page)) m_page = kNav[i].page;
+        if (navItem(t(kNav[i].key), kNav[i].page, m_page == kNav[i].page, reasonOf(kNav[i].page))) m_page = kNav[i].page;
     }
     // 設定は最下部に固定
     ImGui::SetCursorPosY(height - S(18) - S(40) - S(26));
     ImGui::Separator();
-    if (navItem(t(kNav[count - 1].key), kNav[count - 1].page, m_page == kNav[count - 1].page))
+    if (navItem(t(kNav[count - 1].key), kNav[count - 1].page, m_page == kNav[count - 1].page,
+                reasonOf(kNav[count - 1].page)))
         m_page = kNav[count - 1].page;
 
     ImGui::EndChild();
@@ -484,29 +498,19 @@ void Ui::pageHome() {
     }
     endCard();
 
-    if (beginCard("##sys")) {
-        pushBold();
-        ImGui::TextUnformatted(t("home.sysTitle"));
-        popFont();
-        ImGui::Dummy(ImVec2(0, S(2)));
-        keyValue(t("home.os"), m_osLine.c_str());
-        char cpu[32];
-        std::snprintf(cpu, sizeof cpu, "%lu", GetActiveProcessorCount(ALL_PROCESSOR_GROUPS));
-        keyValue(t("home.logicalCpus"), cpu);
-        keyValue(t("home.renderer"), m_warp ? t("home.rendererWarp") : t("home.rendererGpu"));
-        dimText(t("home.sysMore"));
-    }
-    endCard();
-
+    drawSystemCard();
     drawPresetCards();
 }
 
 void Ui::pagePlaceholder(Page page) {
-    pageHeader(t(pageKey(page)), t((std::string("placeholder.") + pageKey(page) + ".subtitle").c_str()));
+    // ページのキーは "nav.gpu" のような形。文言は "placeholder.gpu.subtitle" / ".desc" にある ("nav." を除く)。
+    const std::string name = std::string(pageKey(page)).substr(4);
+    pageHeader(t(pageKey(page)), t(("placeholder." + name + ".subtitle").c_str()));
+    drawFeatureBanner(page);  // 非対応の理由 / 利用はできるが伝えたい注意
     if (beginCard("##ph")) {
         badge(t("common.comingSoon"), m_pal.textDim);
         ImGui::Dummy(ImVec2(0, S(2)));
-        dimText(t((std::string("placeholder.") + pageKey(page) + ".desc").c_str()));
+        dimText(t(("placeholder." + name + ".desc").c_str()));
     }
     endCard();
 }

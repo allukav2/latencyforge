@@ -168,10 +168,10 @@ void bringExistingWindowToFront(bool demo) {
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     // 開発/スクリーンショット用: --page N (0=Home .. 8=Settings)
     // --demo はメモリ上のレジストリで動作し、実機のレジストリには一切触れない。
-    //   --skip-wizard / --show preview|result|recovery|wizard|expanded は --demo のときだけ有効。
+    //   --skip-wizard / --show ... / --sim <サンプル名> (例: intel-hybrid, amd-dual-ccd, arm64) は --demo のときだけ有効。
     lfapp::Page startPage = lfapp::Page::Home;
     bool demo = false, skipWizard = false;
-    std::string show;
+    std::string show, sim;
     int argc = 0;
     if (LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc)) {
         for (int i = 1; i < argc; ++i) {
@@ -179,6 +179,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             if (a == L"--demo") demo = true;
             if (a == L"--skip-wizard") skipWizard = true;
             if (i + 1 < argc && a == L"--page") startPage = parsePage(argv[i + 1]);
+            if (i + 1 < argc && a == L"--sim") sim = lf::narrow(argv[i + 1]);
             if (i + 1 < argc && a == L"--show") {
                 show = lf::narrow(argv[i + 1]);
             }
@@ -240,6 +241,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     init.demo = demo;
     init.skipWizard = demo && skipWizard;
     init.show = demo ? show : std::string();
+    init.sim = demo ? sim : std::string();  // システム構成のサンプル (--demo のときだけ有効)
     app.ui.init(init, dpi);
     ImGui_ImplWin32_Init(app.hwnd);
     ImGui_ImplDX11_Init(app.dx.device(), app.dx.context());

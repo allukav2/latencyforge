@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 ### Added
+- M4: system detection at startup — OS (build, edition, Server/LTSC, native architecture), CPU topology (physical/logical cores,
+  P/E cores, SMT, L3 sharing groups for multi-CCD, processor groups), GPU vendor via DXGI vendor ID. Shown in a system card with a
+  core-layout map on Home.
+- M4: features are greyed out with a tooltip reason when unsupported (e.g. "No NVIDIA GPU was detected", "This Windows build is
+  not supported"); startup warning for Windows 7/8, pre-1809 Windows 10, Server, LTSC and ARM64.
+- M4: detection is split into a thin OS-API layer (`ISystemProbe`, read-only) and pure analysis functions, tested with mock data for
+  Intel hybrid, AMD multi-CCD/CCX, simple, no-SMT, VM, >64-thread, Server, LTSC, ARM64 and old-Windows systems. `--demo --sim <name>`
+  renders any sample system.
+- M4 fix: placeholder pages showed raw translation keys (wrong key prefix); a test now guards the keys.
 - M3: Kernel / Timer page connected to real data (6 tweaks from `data/tweaks/kernel.json`): per-card toggle, current → new value,
   state badge, risk, restart-required marker, per-item revert, "apply all", "revert everything".
 - M3: diff preview dialog before every apply/revert (applies only after confirmation), Dry-run mode, result dialog with rollback info.

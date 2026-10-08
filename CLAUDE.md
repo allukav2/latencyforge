@@ -86,7 +86,9 @@ ImGui は 1.92 以降(動的フォント API `PushFont(font, size)` を使用)�
   プリセット(`data/presets.json`: 安全2項目 ⊂ バランス4項目 ⊂ 最大5項目)も実装済み。`kernel.wer_user_reporting` はどのプリセットにも含めず個別トグルのみ。
   リスク「中」(`drive_remapping_mitigation`)は「最大」のみ。差分プレビューでは「中」を先頭に出して強調する。
   プリセット説明には「効果はビルド依存」を明記し、「最大＝最速」と誤解させる表現は使わない(テストで検証)。ウィザードが提案するのは「安全」。
-  M3 の新テストは CI 結果待ち。
+  M3 は CI 緑(単体 107 + HKCU 統合 7)。
+- M4 実装済み(システム検出: `core/sysinfo`・`win_probe`・`sample_systems`、ホームのシステムカード、機能のグレーアウト、動作保証外の警告)。
+  検出は `ISystemProbe` で OS API 層と分離。`--demo --sim <名前>` でサンプル構成を表示できる。新テストは CI 結果待ち。
 
 ## 配布
 - ポータブル(単一 exe + 設定フォルダ)。設定は exe 隣 `data/`、書込不可なら `%APPDATA%\LatencyForge`。

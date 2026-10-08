@@ -55,6 +55,11 @@ ImVec4 Ui::statusColor(lf::ItemStatus s) const {
 }
 
 bool Ui::opsEnabled(const char** reason) const {
+    const size_t k = static_cast<size_t>(Page::Kernel);
+    if (!m_feat[k].available) {  // このシステムでは対象外 (OS ビルド / ARM64 など)
+        *reason = m_featReason[k].c_str();
+        return false;
+    }
     if (!m_be->engine->loaded()) {
         *reason = t("kernel.disabledState");
         return false;
@@ -197,6 +202,7 @@ void Ui::pageKernel() {
     }
 
     pageHeader(t("nav.kernel"), t("kernel.subtitle"));
+    drawFeatureBanner(Page::Kernel);
     drawStatusBanners();
 
     const char* why = nullptr;
@@ -437,7 +443,9 @@ void Ui::endModalWindow() { ImGui::EndPopup(); }
 
 void Ui::drawModals() {
     bool any = true;
-    if (needWizard())
+    if (!m_compat.supported() && !m_compatAck)
+        drawCompatModal();  // 動作保証外の環境: 何よりも先に伝える
+    else if (needWizard())
         drawWizardModal();
     else if (m_modal == Modal::Preview)
         drawPreviewModal();

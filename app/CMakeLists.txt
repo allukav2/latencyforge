@@ -17,6 +17,7 @@ add_executable(latencyforge WIN32
   src/ui.cpp
   src/ui_kernel.cpp
   src/ui_firstrun.cpp
+  src/ui_system.cpp
   src/backend.cpp
   src/theme.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/app.rc

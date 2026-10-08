@@ -11,6 +11,7 @@
 #include "lf/engine.hpp"
 #include "lf/i18n.hpp"
 #include "lf/settings.hpp"
+#include "lf/sysinfo.hpp"
 #include "theme.hpp"
 
 namespace lfapp {
@@ -25,7 +26,8 @@ struct UiInit {
     // --- 開発・スクリーンショット用 (デモ時のみ有効)
     bool demo = false;                // メモリ上のレジストリ。実機には触れない
     bool skipWizard = false;          // デモ: ウィザードを出さない (保存はしない)
-    std::string show;                 // デモ: "preview" | "result" | "recovery" | "wizard" | "expanded"
+    std::string show;                 // デモ: "preview" | "result" | "recovery" | "wizard" | "expanded" ...
+    std::string sim;                  // デモ: システム構成のサンプル名 (lf::sampleSystemNames())。検出結果を差し替える
 };
 
 class Ui {
@@ -54,7 +56,7 @@ private:
 
     // --- ウィジェット
     float S(float v) const { return v * m_dpi; }
-    bool navItem(const char* label, Page page, bool selected);
+    bool navItem(const char* label, Page page, bool selected, const char* disabledReason = nullptr);
     bool toggle(const char* strId, bool* value, bool enabled = true, const char* disabledReason = nullptr);
     bool toggleRaw(const char* strId, bool on, bool enabled, const char* disabledReason);  // 値は変えず、クリックだけ返す
     void badge(const char* text, const ImVec4& color);
@@ -81,6 +83,16 @@ private:
     void pageHome();
     void pageSettings();
     void pagePlaceholder(Page page);
+
+    // --- システム検出 / 互換性 (ui_system.cpp)
+    void detectSystemInfo(const UiInit& init);
+    static lf::Feature featureOf(Page page);
+    std::string reasonText(const lf::FeatureStatus& status) const;
+    std::string archName(lf::Arch arch) const;
+    void drawSystemCard();
+    void drawTopologyMap();
+    void drawFeatureBanner(Page page);
+    void drawCompatModal();
 
     // --- カーネル/タイマー (ui_kernel.cpp)
     struct Row {
@@ -143,6 +155,14 @@ private:
     std::unordered_map<ImGuiID, float> m_anim;
 
     std::unique_ptr<Backend> m_be;
+
+    // システム検出の結果 (起動時に 1 回)。機能の有効/無効は、これと featureStatus() から決める。
+    lf::SystemInfo m_sys;
+    lf::CompatReport m_compat;
+    bool m_compatAck = false;  // 「動作保証外」の警告を確認済み
+    lf::FeatureStatus m_feat[static_cast<size_t>(Page::Count)];
+    std::string m_featReason[static_cast<size_t>(Page::Count)];  // 無効の理由 (翻訳・引数展開済み)
+    std::string m_sysSummary;  // ログ用の 1 行要約
 
     // カーネルページ
     std::vector<Row> m_rows;

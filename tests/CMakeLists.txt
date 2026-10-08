@@ -7,6 +7,7 @@ add_executable(lf_tests
   lang_test.cpp
   util_test.cpp
   preset_test.cpp
+  sysinfo_test.cpp
   engine_test.cpp
   registry_integration_test.cpp
 )
