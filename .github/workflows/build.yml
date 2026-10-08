@@ -15,7 +15,7 @@ env:
 
 jobs:
   windows-x64:
-    runs-on: windows-latest
+    runs-on: windows-2022   # windows-latest は VS 2026 のみで、プリセットの "Visual Studio 17 2022" が見つからない
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +46,14 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-
 
+      # ビルド前に失敗しても成果物 (test-results) が必ず作られるよう、Configure より前に用意する。
+      # 空フォルダだと Upload が警告を出すので、実行情報を書いた 1 ファイルを置く。
+      - name: Prepare test result folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          "commit=$env:GITHUB_SHA`nrunner=$env:ImageOS $env:ImageVersion" | Out-File test-results/run-info.txt -Encoding utf8
+
       - name: Configure
         run: cmake --preset x64
 
@@ -55,10 +63,6 @@ jobs:
       # --- テスト: ローカル PC では Smart App Control により実行できないため、ここがテストの正本。
       # 単体テストと実機レジストリ統合テストは別ステップにして、どちらが落ちたか分かるようにする。
       # 片方が失敗してももう片方は実行し (always())、最後にまとめてジョブを失敗させる。
-      - name: Prepare test result folder
-        shell: pwsh
-        run: New-Item -ItemType Directory -Force test-results | Out-Null
-
       - name: Unit tests (no real registry)
         id: unit
         shell: pwsh
